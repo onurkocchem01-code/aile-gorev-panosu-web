@@ -270,6 +270,12 @@ textarea.input{min-height:120px;font-family:ui-monospace,Menlo,monospace;font-si
 .ctile-a{font-size:12.5px;font-weight:700;color:var(--tc);margin-top:-4px}
 @media (max-width:520px){.ctile{min-height:118px;padding:14px 14px 12px;border-radius:16px}.ctile-ic{width:26px;height:26px}.ctile-n{font-size:16px;margin-top:10px}}
 .cat-top{margin-bottom:-6px}
+.row.addtask{width:100%;background:none;border:0;border-top:1px solid var(--line);text-align:left;cursor:pointer;border-radius:10px;color:var(--tc)}
+.row.addtask:hover{background:var(--tb)}
+.row.addtask .t1{color:var(--tc);font-weight:700}
+.row.addtask .t2{color:var(--ink-3)}
+.row.addtask .plus{width:30px;height:30px;border-radius:50%;border:2px dashed var(--tc);display:grid;place-items:center;flex-shrink:0}
+.row.addtask .plus svg{width:16px;height:16px}
 .catlist{border-top:4px solid var(--tc)}
 .days{display:flex;gap:6px;flex-wrap:wrap}
 .days button{width:46px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:13px;color:var(--ink-2)}
@@ -375,18 +381,16 @@ textarea.input.plain{font-family:var(--f-body);font-size:15px;min-height:90px}
    f: g=her gün, h=her hafta, t=bir kez · r: e=ebeveyn, c=çocuk/öğrenci, a=herkes
    (sıra kimlik içindir; ekranda alfabetik gösterilir, yeni görevler sona eklenir) ---------- */
 const CATS=[
- {id:"tem",name:"Temizlik",color:"#3B6FD8",items:[["Banyo ve tuvaleti temizle","h","e"],["Çöpleri çıkar","g","a"],["Evi süpür","h","e"],["Geri dönüşüm atıklarını ayır","h","c"],["Kapı kollarını dezenfekte et","h","e"],["Mobilyaların tozunu al","h","c"],["Paspas yap","h","e"],["Pencereleri sil","t","e"],["Halıları süpür","h","e"],["Yatak çarşaflarını değiştir","h","e"],["Lavaboyu sil","h","c"],["Aynaları temizle","h","c"]]},
- {id:"mut",name:"Mutfak ve Yemek",color:"#C2410C",items:[["Akşam yemeğini hazırla","g","e"],["Bulaşık makinesini boşalt","g","c"],["Bulaşık makinesini doldur","g","a"],["Buzdolabını düzenle","h","e"],["Haftalık yemek planı yap","h","e"],["Kahvaltı hazırla","g","e"],["Market listesi hazırla","h","a"],["Beslenme çantasını hazırla","g","e"],["Sofrayı kur","g","c"],["Sofrayı topla","g","c"],["Meyve ve sebzeleri yıka","g","c"],["Mutfak tezgâhını sil","g","a"]]},
- {id:"cam",name:"Çamaşır ve Düzen",color:"#7A4FD6",items:[["Çamaşırları as","h","a"],["Çamaşırları katla","h","c"],["Çamaşır makinesini çalıştır","h","e"],["Ertesi günün kıyafetini hazırla","g","c"],["Ayakkabılığı düzenle","h","c"],["Oyuncakları topla","g","c"],["Ütü yap","h","e"],["Yatağını topla","g","c"],["Odanı topla","g","c"],["Dolabı düzenle","t","a"],["Mevsimlik kıyafetleri ayır","t","e"],["Kirli sepetini boşalt","h","c"]]},
- {id:"egi",name:"Eğitim ve Ödev",color:"#0F8A6A",items:[["Ödevini yap","g","c"],["Kitap oku (20 dakika)","g","c"],["Okul çantasını hazırla","g","c"],["Ders tekrarı yap","g","c"],["Sınava çalış","t","c"],["Okul duyurularını kontrol et","g","e"],["Veli toplantısına katıl","t","e"],["Ödev ve not takibini yap","h","e"],["Kurs ve etüt programını kontrol et","h","e"],["Kırtasiye eksiklerini tamamla","t","e"],["10 yeni kelime öğren","g","c"],["Çalışma masasını düzenle","h","c"]]},
- {id:"bak",name:"Kişisel Bakım",color:"#B4237A",items:[["Banyo yap veya duş al","g","a"],["Dişlerini fırçala (sabah)","g","c"],["Dişlerini fırçala (akşam)","g","c"],["Yemekten önce ellerini yıka","g","a"],["Saçını tara","g","c"],["Tırnaklarını kes","h","a"],["Uyku saatinde yat","g","c"],["Günde 6 bardak su iç","g","a"],["Yüzünü yıka","g","c"],["Kirlileri sepete at","g","c"],["Ayakkabılarını temizle","h","c"],["Kişisel eşyalarını düzenle","h","c"]]},
- {id:"sag",name:"Sağlık",color:"#0E7490",items:[["Aşı takvimini kontrol et","t","e"],["Diş hekimi randevusu al","t","e"],["Doktor randevusu al","t","e"],["Egzersiz veya spor yap","g","a"],["İlaçları zamanında al","g","a"],["İlaç dolabını kontrol et","t","e"],["Ekran süresini sınırla","g","c"],["Göz kontrolü randevusu al","t","e"],["Açık havada yürüyüş yap","h","a"],["Boy ve kilo takibi yap","t","e"],["Bir porsiyon meyve ye","g","c"],["Esneme ve nefes egzersizi yap","g","a"]]},
- {id:"dis",name:"Ev Dışı ve Ulaşım",color:"#A16207",items:[["Çocukları okula bırak","g","e"],["Çocukları okuldan al","g","e"],["Kursa veya antrenmana götür","h","e"],["Market alışverişi yap","h","e"],["Pazar alışverişi yap","h","e"],["Eczaneye uğra","t","e"],["Kargo ve paketleri teslim al","t","a"],["Kuru temizlemeye götür","t","e"],["Arabaya yakıt al","h","e"],["Araba bakımını yaptır","t","e"],["Kütüphaneye kitap iade et","t","c"],["Fırından ekmek al","g","c"]]},
- {id:"fat",name:"Faturalar ve Ev Yönetimi",color:"#9F3D3D",items:[["Elektrik faturasını öde","t","e"],["Su faturasını öde","t","e"],["Doğalgaz faturasını öde","t","e"],["İnternet ve telefon faturasını öde","t","e"],["Aidatı öde","t","e"],["Aylık bütçeyi gözden geçir","t","e"],["Harçlıkları ver","h","e"],["Okul servis ücretini öde","t","e"],["Ev arızalarını takip et","t","e"],["Önemli belgeleri dosyala","t","e"],["Kumbaraya para at","h","c"],["Harçlık harcamalarını deftere yaz","h","c"]]},
- {id:"bah",name:"Bahçe, Bitki ve Evcil Hayvan",color:"#4D7C0F",items:[["Balkonu temizle","h","a"],["Bitkileri sula","h","c"],["Saksı toprağını değiştir","t","a"],["Evcil hayvanı besle","g","c"],["Evcil hayvanı yürüyüşe çıkar","g","a"],["Kum kabını temizle","g","a"],["Veteriner randevusu al","t","e"],["Akvaryum veya kafes suyunu değiştir","h","a"],["Mama ve malzeme al","t","e"],["Çimleri biç","t","e"],["Kuşlar için yem ve su koy","g","c"],["Kuru yaprakları topla","h","c"]]},
- {id:"ort",name:"Ortak Aile Zamanı",color:"#5B5BD6",items:[["Aile oyun gecesi","h","a"],["Aile toplantısı yap","h","a"],["Birlikte kitap okuyun","h","a"],["Birlikte yemek pişirin","h","a"],["Büyükleri ziyaret et veya ara","h","a"],["Film gecesi","h","a"],["Hafta sonu gezisi planla","h","a"],["Özel günleri planla","t","a"],["Doğa yürüyüşü","h","a"],["Birlikte ev işi saati","h","a"],["Haftanın planını birlikte yapın","h","a"],["Birlikte gönüllü bir iyilik yapın","t","a"]]},
- {id:"dij",name:"Dijital Düzen",color:"#4B6584",items:[["Tablet ve telefonu şarja tak","g","c"],["Ekran süresi planı yap","h","e"],["Aile fotoğraflarını yedekle","t","e"],["Kullanılmayan uygulamaları sil","t","a"],["Ödev için internette araştırma yap","g","c"],["Okul platformundaki ödevleri kontrol et","g","c"],["Şifre ve güvenlik ayarlarını kontrol et","t","e"],["Oyun süresini takip et","g","e"],["Kabloları ve şarj aletlerini düzenle","t","a"],["Bilgisayar ve klavyenin tozunu al","h","c"],["Ekransız aile saati uygula","g","a"],["Yazıcı kâğıdını ve kartuşunu kontrol et","t","e"]]},
- {id:"sor",name:"Sorumluluk ve Yardımlaşma",color:"#C0335A",items:[["Kardeşine ödevde yardım et","g","c"],["Büyüklerine telefon et","h","c"],["Komşuya yardım et","t","a"],["Misafir için hazırlık yap","t","a"],["Teşekkür notu yaz","t","c"],["Kendi tabağını mutfağa götür","g","c"],["Odadan çıkarken ışığı kapat","g","a"],["Su ve elektriği idareli kullan","g","a"],["Ev kurallarını birlikte gözden geçir","h","e"],["Haftanın iyiliğini yap","h","a"],["Oyuncaklarını kardeşinle paylaş","g","c"],["Ertesi günün planını yaz","g","c"]]}
+ {id:"tem",name:"Temizlik",color:"#3B6FD8",items:[["Banyo ve tuvaleti temizle","h","e","tem1"],["Çöpleri çıkar","g","a","tem2"],["Evi süpür","h","e","tem3"],["Mobilyaların tozunu al","h","c","tem6"],["Paspas yap","h","e","tem7"],["Pencereleri sil","t","e","tem8"],["Halıları süpür","h","e","tem9"],["Yatak çarşaflarını değiştir","h","e","tem10"],["Lavaboyu sil","h","c","tem11"],["Aynaları temizle","h","c","tem12"]]},
+ {id:"mut",name:"Mutfak ve Yemek",color:"#C2410C",items:[["Akşam yemeğini hazırla","g","e","mut1"],["Bulaşık makinesini boşalt","g","c","mut2"],["Bulaşık makinesini doldur","g","a","mut3"],["Haftalık yemek planı yap","h","e","mut5"],["Kahvaltı hazırla","g","e","mut6"],["Market listesi hazırla","h","a","mut7"],["Beslenme çantasını hazırla","g","e","mut8"],["Sofrayı kur","g","c","mut9"],["Sofrayı topla","g","c","mut10"],["Mutfak tezgâhını sil","g","a","mut12"]]},
+ {id:"cam",name:"Çamaşır ve Düzen",color:"#7A4FD6",items:[["Çamaşırları as","h","a","cam1"],["Çamaşırları katla","h","c","cam2"],["Çamaşır makinesini çalıştır","h","e","cam3"],["Ertesi günün kıyafetini hazırla","g","c","cam4"],["Ayakkabılığı düzenle","h","c","cam5"],["Ütü yap","h","e","cam7"],["Yatağını topla","g","c","cam8"],["Odanı topla","g","c","cam9"],["Mevsimlik kıyafetleri ayır","t","e","cam11"],["Kirli sepetini boşalt","h","c","cam12"]]},
+ {id:"egi",name:"Eğitim ve Ödev",color:"#0F8A6A",items:[["Ödevini yap","g","c","egi1"],["Kitap oku (20 dakika)","g","c","egi2"],["Okul çantasını hazırla","g","c","egi3"],["Ders tekrarı yap","g","c","egi4"],["Sınava çalış","t","c","egi5"],["Okul duyurularını kontrol et","g","e","egi6"],["Veli toplantısına katıl","t","e","egi7"],["Ödev ve not takibini yap","h","e","egi8"],["10 yeni kelime öğren","g","c","egi11"],["Çalışma masasını düzenle","h","c","egi12"]]},
+ {id:"bak",name:"Kişisel Bakım",color:"#B4237A",items:[["Banyo yap veya duş al","g","a","bak1"],["Dişlerini fırçala (sabah)","g","c","bak2"],["Dişlerini fırçala (akşam)","g","c","bak3"],["Yemekten önce ve sonra ellerini yıka","g","a","bak4"],["Saçını tara","g","c","bak5"],["Tırnaklarını kes","h","a","bak6"],["Uyku saatinde yat","g","c","bak7"],["Günde 6 bardak su iç","g","a","bak8"],["Kirlileri sepete at","g","c","bak10"],["Kişisel eşyalarını düzenle","h","c","bak12"]]},
+ {id:"sag",name:"Sağlık",color:"#0E7490",items:[["Egzersiz veya spor yap","g","a","sag4"],["İlaçları zamanında al","g","a","sag5"],["Ekran süresini sınırla","g","c","sag7"],["Boy ve kilo takibi yap","t","e","sag10"],["Bir porsiyon meyve ye","g","c","sag11"]]},
+ {id:"dis",name:"Ev Dışı ve Ulaşım",color:"#A16207",items:[["Çocukları okula bırak","g","e","dis1"],["Çocukları okuldan al","g","e","dis2"],["Kursa veya antrenmana götür","h","e","dis3"],["Market alışverişi yap","h","e","dis4"],["Arabaya yakıt al","h","e","dis9"],["Araba bakımını yaptır","t","e","dis10"]]},
+ {id:"fat",name:"Faturalar ve Ev Yönetimi",color:"#9F3D3D",items:[["Faturaları öde","t","e","fat13"],["Aidatı öde","t","e","fat5"],["Harçlıkları ver","h","e","fat7"],["Okul servis ücretini öde","t","e","fat8"],["Ev arızalarını takip et","t","e","fat9"],["Kumbaraya para at","h","c","fat11"]]},
+ {id:"ort",name:"Ortak Aile Zamanı",color:"#5B5BD6",items:[["Aile oyun gecesi","h","a","ort1"],["Birlikte kitap okuyun","h","a","ort3"],["Birlikte yemek pişirin","h","a","ort4"],["Büyükleri ziyaret et veya ara","h","a","ort5"],["Film gecesi","h","a","ort6"],["Hafta sonu gezisi planla","h","a","ort7"],["Doğa yürüyüşü","h","a","ort9"],["Birlikte ev işi saati","h","a","ort10"],["Haftanın planını birlikte yapın","h","a","ort11"],["Birlikte gönüllü bir iyilik yapın","t","a","ort12"]]},
+ {id:"dig",name:"Diğer görevler",color:"#4B6584",items:[["Dijital cihaz kullanımı","g","a","dig1"],["Ev ekonomisi ve faturalar","h","a","dig2"],["Sosyal sorumluluk ve yardımlaşma","h","a","dig4"],["Evcil hayvan ve bitkiler","g","a","dig3"]]}
 ];
 const CAT=Object.fromEntries(CATS.map(c=>[c.id,c]));
 const FREQ={g:"Her gün",h:"Her hafta",t:"Bir kez"};
@@ -412,9 +416,9 @@ const GUIDE=[
   does:["Oyun ve film gecesi, aile toplantısı gibi ortak görevleri paylaşır","Aynı aile koduyla herkes kendi telefonundan aynı panoyu görür","Bir göreve birden fazla kişi atanabilir; her kişi kendi payını işaretler","Yeni ihtiyaçlar için “Görev ekle” ile kendi görevlerini oluşturur"]}
 ];
 /* aile kurulurken önerilen başlangıç görevleri */
-const STARTER_C=["bak2","bak3","cam8","cam9","egi1","egi2","egi3","mut9","mut10","dij1"];
-const STARTER_E=["mut1","mut3","tem2","dis4","cam3","egi6","egi8","mut5","tem3","tem1","fat6","sor9"];
-const STARTER_A=["ort1","ort2"];
+const STARTER_C=["bak2","bak3","cam8","cam9","egi1","egi2","egi3","mut9","mut10","bak7"];
+const STARTER_E=["mut1","mut3","tem2","dis4","cam3","egi6","egi8","mut5","tem3","tem1","fat13","dis1"];
+const STARTER_A=["ort1","ort6"];
 const MCOLORS=["#3B6FD8","#C2410C","#0F8A6A","#B4237A","#7A4FD6","#A16207","#0E7490","#9F3D3D"];
 const TR="tr";
 const cmp=(a,b)=>a.localeCompare(b,TR,{sensitivity:"base"});
@@ -456,8 +460,8 @@ function memberById(id){const v=(S.state.members||{})[id];return v&&!v.del?{id,.
 
 function allTasks(){
   const st=S.state.tasks||{};const out=[];
-  for(const c of CATS)c.items.forEach(([title,f,r],i)=>{const id=c.id+(i+1);const s=st[id]||{};out.push(build(id,{title,cat:c.id,f:s.f||f,r:r||"a",sl:s.sl||DEFSLOT[id]||"any",dw:Array.isArray(s.dw)?s.dw:[],due:s.due||"",custom:false},s))});
-  for(const id in st){const s=st[id];if(s&&s.custom&&!s.del&&CAT[s.cat])out.push(build(id,{title:s.title,cat:s.cat,f:s.f||"g",r:"a",sl:s.sl||"any",dw:Array.isArray(s.dw)?s.dw:[],due:s.due||"",custom:true},s))}
+  for(const c of CATS)c.items.forEach(([title,f,r,tid])=>{const id=tid;const s=st[id]||{};out.push(build(id,{title,cat:c.id,f:s.f||f,r:r||"a",sl:s.sl||DEFSLOT[id]||"any",dw:Array.isArray(s.dw)?s.dw:[],due:s.due||"",custom:false},s))});
+  for(const id in st){const s=st[id];if(s&&s.custom&&!s.del)out.push(build(id,{title:s.title,cat:CAT[s.cat]?s.cat:"dig",f:s.f||"g",r:"a",sl:s.sl||"any",dw:Array.isArray(s.dw)?s.dw:[],due:s.due||"",custom:true},s))}
   return out;
   function build(id,base,s){const as={};for(const m in (s.as||{})){if(s.as[m]&&memberById(m))as[m]=s.as[m]}const doneBy={};for(const m in (s.doneBy||{}))if(s.doneBy[m])doneBy[m]=s.doneBy[m];return {id,...base,as,doneBy,dbw:s.dbw||{},rot:!!s.rot&&base.f!=="t"}}
 }
@@ -825,6 +829,7 @@ const CICON={
  bah:'<path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14z"/><path d="M5 19l7-7"/>',
  ort:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.6c3 .1 5 1.9 5 4.9"/>',
  dij:'<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 18h2"/>',
+ dig:'<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
  sor:'<path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.4 6.7 19.1l1-5.8L3.5 9.2l5.9-.9z"/>'
 };
 function pastel(hex,amt){const n=parseInt(hex.slice(1),16),r=n>>16,g=n>>8&255,b=n&255,m=c=>Math.round(c+(255-c)*amt);return `rgb(${m(r)},${m(g)},${m(b)})`}
@@ -853,7 +858,7 @@ function pGorevler(){
   head(c.name,`${all.length} görev · ${all.filter(isAs).length} atanmış`,addBtn)+`
   <div class="chips" role="group" aria-label="Kategori">${CATS.map(x=>`<button class="chip" data-act="cat" data-v="${x.id}" aria-pressed="${S.cat===x.id}">${esc(x.name)}</button>`).join("")}</div>
   <div class="toolbar">${search}${seg}</div>
-  ${items.length?`<section class="card catlist" style="--tc:${c.color};--tb:${pastel(c.color,.9)}"><div class="list">${items.map(taskRow).join("")}</div></section>`
+  ${items.length?`<section class="card catlist" style="--tc:${c.color};--tb:${pastel(c.color,.9)}"><div class="list">${items.map(taskRow).join("")}${S.readOnly?"":`<button class="row addtask" data-act="newTaskCat" data-v="${c.id}"><span class="plus">${ICON.plus}</span><span class="tt"><span class="t1">Diğer</span><span class="t2">${c.id==="dig"?"Ailenize özel yeni bir görev ekleyin":esc(c.name)+" için kendi görevinizi ekleyin"}</span></span></button>`}</div></section>`
   :`<div class="card empty"><h3>${S.filter==="on"?"Bu kategoride atanmış görev yok":"Bu kategoride atanmamış görev kalmadı"}</h3><p>Üstteki “Tümü” seçeneğiyle bütün görevleri görebilirsiniz.</p></div>`}`;
 }
 
@@ -1007,7 +1012,7 @@ function taskSheet(){
    ${ms.length?`<div class="pick">${ms.map(m=>{const fit=d.r&&d.r!=="a"&&RGROUP[m.role]===d.r;return `<button data-act="dMem" data-m="${m.id}" aria-pressed="${!!d.as[m.id]}">${av(m)}${esc(m.name)}${fit?'<small class="fit">önerilen</small>':""}</button>`}).join("")}</div>`:`<p class="muted" style="margin:0">Önce Aile sayfasından üye ekleyin.</p>`}</div>
    ${d.f!=="t"&&Object.keys(d.as).length>1?`<label class="tick"><input type="checkbox" id="tRot" ${d.rot?"checked":""}> <span><b>Sırayla yapsınlar (nöbet).</b> ${d.f==="g"?"Her gün":"Her hafta"} seçilenlerden yalnızca biri yapar; sıra kendiliğinden döner.${d.rot?`<span class="rotprev">${rotPreview(d)}</span>`:""}</span></label>`:""}
    <div id="delZone"></div>
-   <div class="actions">${!d.isNew&&d.custom?`<button class="btn danger" data-act="askDel">Görevi sil</button>`:""}${!d.isNew&&Object.keys(d.as).length?`<button class="btn" data-act="clearAs">Atamayı kaldır</button>`:""}<button class="btn" data-act="closeSheet">Vazgeç</button><button class="btn primary" data-act="saveTask">Kaydet</button></div>`);
+   <div class="actions">${!d.isNew?`<button class="btn" data-act="dupTask" title="Bu görevin bir kopyasını oluşturur">Çoğalt</button>`:""}${!d.isNew&&d.custom?`<button class="btn danger" data-act="askDel">Görevi sil</button>`:""}${!d.isNew&&Object.keys(d.as).length?`<button class="btn" data-act="clearAs">Atamayı kaldır</button>`:""}<button class="btn" data-act="closeSheet">Vazgeç</button><button class="btn primary" data-act="saveTask">Kaydet</button></div>`);
 }
 function syncDraftInputs(){const a=$("#tTitle"),b=$("#tCat"),c=$("#tDue"),r=$("#tRot");if(a)draft.title=a.value;if(b)draft.cat=b.value;if(c)draft.due=c.value;if(r)draft.rot=r.checked}
 function rotPreview(d){const t={f:d.f,dw:d.dw||[],as:d.as,rot:true};const out=[];const base=new Date();
@@ -1093,6 +1098,8 @@ document.addEventListener("click",async ev=>{
   case "pickAMember":S.amember=el.dataset.m;render();break;
   case "openMember":S.member=el.dataset.m;S.dayOff=0;go("kisiler");break;
   case "openAnaliz":S.amember=el.dataset.m;S.analizTab="birey";go("analiz");break;
+  case "newTaskCat":if(S.readOnly)return;draft={isNew:true,custom:true,title:"",cat:el.dataset.v,f:"g",sl:"any",dw:[],due:"",as:{},orig:{}};taskSheet();break;
+  case "dupTask":{syncDraftInputs();const base=draft;draft={isNew:true,custom:true,title:base.title,cat:base.cat,f:base.f,sl:base.sl||"any",dw:[...(base.dw||[])],due:base.due||"",as:{},orig:{}};taskSheet();setTimeout(()=>{const i=$("#tTitle");if(i){i.focus();i.select()}},30);toast("Kopya hazır. Adını değiştirip kaydedin.");break}
   case "newTask":if(S.readOnly)return;draft={isNew:true,custom:true,title:"",cat:S.cat!=="all"?S.cat:"tem",f:"g",sl:"any",dw:[],due:"",as:{},orig:{}};taskSheet();break;
   case "editTask":{if(S.readOnly){toast("Yalnızca görüntüleme modundasınız");return}const t=allTasks().find(x=>x.id===el.dataset.t);if(!t)return;draft={isNew:false,id:t.id,custom:t.custom,title:t.title,cat:t.cat,f:t.f,r:t.r,sl:t.sl,origSl:t.sl,dw:[...(t.dw||[])],due:t.due||"",rot:t.rot,as:{...t.as},orig:{...t.as}};taskSheet();break}
   case "dFreq":syncDraftInputs();draft.f=el.dataset.v;taskSheet();break;
