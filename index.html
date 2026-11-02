@@ -265,7 +265,7 @@ textarea.input{min-height:120px;font-family:ui-monospace,Menlo,monospace;font-si
 .tag.due-low{background:var(--low-soft);color:var(--low);border-color:transparent}
 .tag.due-warn{background:var(--warn-soft);color:var(--warn);border-color:transparent}
 .byx{font-size:11.5px;color:var(--ink-3);font-style:italic}
-.note.install{max-width:34em}
+.note.install{max-width:38em}.note.install a{color:var(--accent);font-weight:700;overflow-wrap:anywhere}
 .share{background:linear-gradient(135deg,var(--accent-soft),var(--mint-soft))}
 .remtimes{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:12px}
 .bk-more{margin-top:14px}.bk-more summary{cursor:pointer;font-weight:600;color:var(--ink-2);font-size:13.5px;margin-bottom:10px}
@@ -667,7 +667,11 @@ function guideSections(withCta){
    <div class="cats">${CATS.map(c=>{const s=[...c.items].map(x=>x[0]).sort(cmp).slice(0,3);return `<div class="cat"><div class="cat-top"><span class="cat-ic" style="background:${c.color}">${esc(c.name[0])}</span><span class="muted num">${c.items.length} görev</span></div><h3>${esc(c.name)}</h3><p>${s.map(esc).join(" · ")}…</p></div>`}).join("")}</div></section>
   ${withCta?"":`<div class="actions" style="justify-content:flex-start"><button class="btn primary" data-go="gorevler">Görevlere git</button><button class="btn" data-go="aile">Aile sayfasına dön</button></div>`}`;
 }
+const SITE="https://onurkocchem01-code.github.io/aile-gorev-panosu-web/";
+function siteHint(){if(window.__AGP_WEB||window.__AGP_APK)return "";
+  return `<div class="note install"><b>Aileler için önerilen adres:</b> <a href="${SITE}" target="_blank" rel="noopener">${SITE.replace("https://","")}</a>. iPhone, Android ve bilgisayarda aynı aile koduyla çalışır, telefona uygulama gibi eklenir. Buradaki aile kodları o adreste geçmez.</div>`}
 function installHint(){
+  if(!window.__AGP_WEB)return siteHint();
   if(!window.__AGP_WEB)return "";
   let standalone=false;try{standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true}catch(e){}
   if(standalone)return "";
@@ -931,6 +935,7 @@ function pAile(){
   :`<section class="card"><div class="card-head"><h2>Bu cihazda saklanıyor</h2></div><p style="margin:0" class="muted">${window.__AGP_APK?"Uygulama verileri yalnızca bu cihazda tutar. Uygulamayı silerseniz liste kaybolur; düzenli yedek almanız iyi olur. Yedeği başka bir telefondaki uygulamaya yükleyerek listeyi taşıyabilirsiniz.":"Bu bağlantıda ortak kayıt izni olmadığı için veriler yalnızca bu tarayıcıda tutulur. Tarayıcı verilerini silerseniz liste kaybolur; düzenli yedek almanız iyi olur."}</p></section>`}
   ${ms.length?`<section class="card"><div class="card-head"><h2>Bu cihazı kim kullanıyor?</h2></div><p class="muted" style="margin-top:0">Seçerseniz, bu cihazdan işaretlenen görevlerde kimin işaretlediği görünür. Ortak tablet için “Ortak cihaz” bırakın.</p><select class="input" id="meSel"><option value="">Ortak cihaz</option>${ms.map(m=>`<option value="${m.id}" ${me()===m.id?"selected":""}>${esc(m.name)}</option>`).join("")}</select></section>`:""}
   ${remindersCard()}
+  ${!window.__AGP_WEB&&!window.__AGP_APK?`<section class="card"><div class="card-head"><h2>Telefonlar için</h2></div>${siteHint()}</section>`:""}
   ${window.__AGP_WEB?`<section class="card"><div class="card-head"><h2>Telefona ekleyin</h2></div>${installHint()||'<p class="muted" style="margin:0">Pano bu cihazda uygulama olarak açık.</p>'}</section>`:""}
   <section class="card"><div class="card-head"><h2>Aile adı</h2></div><div class="addrow"><input class="input" id="famName" value="${esc(S.state.name||"")}" ${S.readOnly?"disabled":""}><button class="btn" data-act="saveName" ${S.readOnly?"disabled":""}>Kaydet</button></div></section>
   <section class="card"><div class="card-head"><h2>Yedek</h2><span class="muted">dosya olarak</span></div>
