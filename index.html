@@ -259,6 +259,18 @@ textarea.input{min-height:120px;font-family:ui-monospace,Menlo,monospace;font-si
 .rolecard summary{display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none}
 .rolecard summary::-webkit-details-marker{display:none}
 .rolecard[open] summary{margin-bottom:8px}
+.ctiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,230px),1fr));gap:14px}
+@media (max-width:520px){.ctiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
+.ctile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:var(--tb);border:1px solid transparent;border-radius:20px;padding:18px 18px 16px;min-height:132px;color:var(--ink);transition:transform .15s ease,box-shadow .15s ease}
+.ctile:hover{box-shadow:0 8px 20px rgba(23,32,65,.10);transform:translateY(-2px)}
+.ctile:active{transform:scale(.98)}
+.ctile-ic{width:32px;height:32px;color:var(--tc);margin-bottom:auto}
+.ctile-n{font-family:var(--f-display);font-weight:800;font-size:clamp(17px,2.4vw,21px);line-height:1.15;margin-top:14px}
+.ctile-s{font-size:13px;color:var(--ink-2)}
+.ctile-a{font-size:12.5px;font-weight:700;color:var(--tc);margin-top:-4px}
+@media (max-width:520px){.ctile{min-height:118px;padding:14px 14px 12px;border-radius:16px}.ctile-ic{width:26px;height:26px}.ctile-n{font-size:16px;margin-top:10px}}
+.cat-top{margin-bottom:-6px}
+.catlist{border-top:4px solid var(--tc)}
 .days{display:flex;gap:6px;flex-wrap:wrap}
 .days button{width:46px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:13px;color:var(--ink-2)}
 .days button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -801,18 +813,48 @@ function weeklySummary(all,D,E,catRows){
 }
 function head(t,s,right){return `<div class="phead"><div><div class="eyebrow">${esc(s||"")}</div><h1>${esc(t)}</h1></div>${right||""}</div>`}
 
+const CICON={
+ tem:'<path d="M9 3h4v3H9zM8 6h6l1 3v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V9z"/><path d="M13 3h3M4 4h1M3 7h1M5 9h1"/>',
+ mut:'<path d="M6 3v7a2 2 0 0 0 4 0V3M8 3v18M17 3c-2 0-3 3-3 6s1 4 3 4v8"/>',
+ cam:'<path d="M8 3l-5 3 2 4 2-1v12h10V9l2 1 2-4-5-3a3 3 0 0 1-8 0z"/>',
+ egi:'<path d="M3 6.5C5.5 5 8.5 5 12 7c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5z"/><path d="M12 7v12.5"/>',
+ bak:'<path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"/><path d="M8 12h2l1-2 2 4 1-2h2"/>',
+ sag:'<path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z"/>',
+ dis:'<path d="M5 16l1.5-5A2 2 0 0 1 8.4 9.5h7.2a2 2 0 0 1 1.9 1.5L19 16"/><path d="M4 16h16v3H4z"/><circle cx="7.5" cy="19" r="1.5"/><circle cx="16.5" cy="19" r="1.5"/>',
+ fat:'<path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4z"/><path d="M4 7l11-3v3M16 13h4"/>',
+ bah:'<path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14z"/><path d="M5 19l7-7"/>',
+ ort:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.6c3 .1 5 1.9 5 4.9"/>',
+ dij:'<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M11 18h2"/>',
+ sor:'<path d="M12 3l2.6 5.3 5.9.9-4.2 4.1 1 5.8L12 16.4 6.7 19.1l1-5.8L3.5 9.2l5.9-.9z"/>'
+};
+function pastel(hex,amt){const n=parseInt(hex.slice(1),16),r=n>>16,g=n>>8&255,b=n&255,m=c=>Math.round(c+(255-c)*amt);return `rgb(${m(r)},${m(g)},${m(b)})`}
+function taskRow(t){const ids=Object.keys(t.as);return `<div class="row tap" data-act="editTask" data-t="${t.id}" tabindex="0" role="button" aria-label="${esc(t.title)}, ata veya düzenle"><div class="tt"><div class="t1">${esc(t.title)}</div><div class="t2">${freqTag(t)}<span class="who w-${t.r}">${RFOR[t.r]}</span>${t.custom?'<span class="tag new">Eklendi</span>':""}</div></div>${ids.length?`<div class="avs">${ids.map(id=>av(memberById(id))).join("")}</div>`:`<span class="assign">Ata</span>`}</div>`}
 function pGorevler(){
   const tasks=allTasks();const q=S.q.trim().toLocaleLowerCase(TR);
-  const vis=tasks.filter(t=>(S.cat==="all"||t.cat===S.cat)&&(!q||t.title.toLocaleLowerCase(TR).includes(q))&&(S.filter==="all"||(S.filter==="on"?Object.keys(t.as).length:!Object.keys(t.as).length)));
-  const assigned=tasks.filter(t=>Object.keys(t.as).length).length;
-  const groups=CATS.filter(c=>S.cat==="all"||c.id===S.cat).map(c=>{const items=vis.filter(t=>t.cat===c.id).sort((a,b)=>cmp(a.title,b.title));const all=tasks.filter(t=>t.cat===c.id);return {c,items,n:all.length,a:all.filter(t=>Object.keys(t.as).length).length}}).filter(g=>g.items.length);
-  return head("Görevler",`${tasks.length} görev · ${assigned} atanmış`,S.readOnly?"":`<button class="btn primary" data-act="newTask">${ICON.plus}Görev ekle</button>`)+`
-  <div class="toolbar"><label class="search">${ICON.search}<input id="q" type="search" placeholder="Görev ara" value="${esc(S.q)}" aria-label="Görev ara"></label>
-  <div class="seg" role="group" aria-label="Atama durumu">${[["all","Tümü"],["on","Atanmış"],["off","Atanmamış"]].map(([k,l])=>`<button data-act="filter" data-v="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("")}</div></div>
-  <div class="chips" role="group" aria-label="Kategori"><button class="chip" data-act="cat" data-v="all" aria-pressed="${S.cat==="all"}">Tüm kategoriler</button>${CATS.map(c=>`<button class="chip" data-act="cat" data-v="${c.id}" aria-pressed="${S.cat===c.id}">${esc(c.name)}</button>`).join("")}</div>
-  ${groups.length?`<div class="grid g2">${groups.map(g=>`<section class="card"><div class="cathead"><h2><span class="catdot" style="background:${g.c.color}"></span>${esc(g.c.name)}</h2><span class="muted num">${g.a}/${g.n} atanmış</span></div>
-    <div class="list">${g.items.map(t=>{const ids=Object.keys(t.as);return `<div class="row tap" data-act="editTask" data-t="${t.id}" tabindex="0" role="button" aria-label="${esc(t.title)} — ata veya düzenle"><div class="tt"><div class="t1">${esc(t.title)}</div><div class="t2">${freqTag(t)}<span class="who w-${t.r}">${RFOR[t.r]}</span>${t.custom?'<span class="tag new">Eklendi</span>':""}</div></div>${ids.length?`<div class="avs">${ids.map(id=>av(memberById(id))).join("")}</div>`:`<span class="assign">Ata</span>`}</div>`}).join("")}</div></section>`).join("")}</div>`
-  :`<div class="card empty"><h3>Bu aramaya uyan görev yok</h3><p>Aramayı temizleyin ya da aradığınız işi yeni görev olarak ekleyin.</p>${S.readOnly?"":`<button class="btn primary" data-act="newTask">${ICON.plus}Görev ekle</button>`}</div>`}`;
+  const isAs=t=>Object.keys(t.as).length>0;
+  const passF=t=>S.filter==="all"||(S.filter==="on"?isAs(t):!isAs(t));
+  const assigned=tasks.filter(isAs).length;
+  const addBtn=S.readOnly?"":`<button class="btn primary" data-act="newTask">${ICON.plus}Görev ekle</button>`;
+  const search=`<label class="search">${ICON.search}<input id="q" type="search" placeholder="Tüm görevlerde ara" value="${esc(S.q)}" aria-label="Görev ara"></label>`;
+  const seg=`<div class="seg" role="group" aria-label="Atama durumu">${[["all","Tümü"],["on","Atanmış"],["off","Atanmamış"]].map(([k,l])=>`<button data-act="filter" data-v="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join("")}</div>`;
+  const empty=`<div class="card empty"><h3>Bu aramaya uyan görev yok</h3><p>Aramayı temizleyin ya da aradığınız işi yeni görev olarak ekleyin.</p>${addBtn}</div>`;
+  // 1) Arama: tüm kategorilerde sonuç
+  if(q){const res=tasks.filter(t=>t.title.toLocaleLowerCase(TR).includes(q)&&passF(t)).sort((a,b)=>cmp(a.title,b.title));
+    return head("Görevler",`${res.length} sonuç`,addBtn)+`<div class="toolbar">${search}${seg}</div>
+    ${res.length?`<section class="card"><div class="list">${res.map(t=>taskRow(t).replace('<div class="t2">',`<div class="t2"><span class="tag" style="background:${pastel(CAT[t.cat].color,.85)};border-color:transparent">${esc(CAT[t.cat].name)}</span>`)).join("")}</div></section>`:empty}`}
+  // 2) Kategori kartları
+  if(!CAT[S.cat]){
+    return head("Görevler",`${tasks.length} görev · ${assigned} atanmış`,addBtn)+`<div class="toolbar">${search}</div>
+    <div class="ctiles">${CATS.map(c=>{const all=tasks.filter(t=>t.cat===c.id);const a=all.filter(isAs).length;
+      return `<button class="ctile" data-act="cat" data-v="${c.id}" style="--tb:${pastel(c.color,.86)};--tc:${c.color}"><svg class="ctile-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${CICON[c.id]||""}</svg><span class="ctile-n">${esc(c.name)}</span><span class="ctile-s num">${all.length} hazır görev</span><span class="ctile-a num">${a?`${a} atanmış`:"Henüz atanmadı"}</span></button>`}).join("")}</div>`}
+  // 3) Tek kategori listesi
+  const c=CAT[S.cat];const all=tasks.filter(t=>t.cat===c.id);const items=all.filter(passF).sort((a,b)=>cmp(a.title,b.title));
+  return `<div class="cat-top"><button class="back" data-act="cat" data-v="all"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Kategoriler</button></div>`+
+  head(c.name,`${all.length} görev · ${all.filter(isAs).length} atanmış`,addBtn)+`
+  <div class="chips" role="group" aria-label="Kategori">${CATS.map(x=>`<button class="chip" data-act="cat" data-v="${x.id}" aria-pressed="${S.cat===x.id}">${esc(x.name)}</button>`).join("")}</div>
+  <div class="toolbar">${search}${seg}</div>
+  ${items.length?`<section class="card catlist" style="--tc:${c.color};--tb:${pastel(c.color,.9)}"><div class="list">${items.map(taskRow).join("")}</div></section>`
+  :`<div class="card empty"><h3>${S.filter==="on"?"Bu kategoride atanmış görev yok":"Bu kategoride atanmamış görev kalmadı"}</h3><p>Üstteki “Tümü” seçeneğiyle bütün görevleri görebilirsiniz.</p></div>`}`;
 }
 
 function weekPlan(m){
@@ -1041,7 +1083,7 @@ document.addEventListener("click",async ev=>{
     toast(nowDone?`“${t.title}” tamamlandı${mm&&!S.focus?" · "+mm.name:""}`:"İşaret kaldırıldı",()=>toggleTask(tid,m,K,who));
     break}
   case "undo":{const f=undoFn;undoFn=null;$("#toastRoot").innerHTML="";if(f)await f();break}
-  case "cat":S.cat=el.dataset.v;render();break;
+  case "cat":S.cat=el.dataset.v;S.q="";render();{const ch=document.querySelector('.chip[aria-pressed="true"]');if(ch)ch.scrollIntoView({block:"nearest",inline:"center"})}window.scrollTo(0,0);break;
   case "dayOff":S.dayOff=+el.dataset.v;render();break;
   case "dDay":{syncDraftInputs();const i=+el.dataset.v;const a=new Set(draft.dw||[]);a.has(i)?a.delete(i):a.add(i);draft.dw=[...a].sort();if(draft.dw.length===7)draft.dw=[];taskSheet();break}
   case "filter":S.filter=el.dataset.v;render();break;
@@ -1121,7 +1163,7 @@ document.addEventListener("input",e=>{
   if(e.target.id==="nText"){const c=$("#nCount");if(c)c.textContent=e.target.value.length+"/140"}
 });
 const VIEWS=TABS.map(t=>t[0]).concat("rehber");
-window.__agpBack=()=>{if(sheet){closeSheet();return true}if(S.focus){S.focus=null;render();return true}if(S.setup){S.setup=null;render();return true}const fam=S.mode==="local"?!!S.state.created:(S.ready&&S.exists&&S.code);if(fam&&S.view!=="bugun"){go("bugun");return true}return false};
+window.__agpBack=()=>{if(sheet){closeSheet();return true}if(S.view==="gorevler"&&(S.q||CAT[S.cat])){S.q="";S.cat="all";render();return true}if(S.focus){S.focus=null;render();return true}if(S.setup){S.setup=null;render();return true}const fam=S.mode==="local"?!!S.state.created:(S.ready&&S.exists&&S.code);if(fam&&S.view!=="bugun"){go("bugun");return true}return false};
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view){S.view=h;render()}});
 
 /* ---------- başlangıç ---------- */
