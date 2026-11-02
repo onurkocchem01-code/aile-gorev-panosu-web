@@ -12,4 +12,4 @@ Bu depo yalnızca yayınlanan sayfa dosyalarını içerir. `fb-config.js` içind
 
 ## Lisans
 
-Telif Hakkı (c) 2026 Onur Koç. **Tüm hakları saklıdır.** Kodun herkese açık görüntülenebilmesi kullanım veya kopyalama izni vermez. Ayrıntılar için `LICENSE` dosyasına bakın.
+Telif Hakkı (c) 2026 onurkocchem01-code (GitHub hesabı sahibi). **Tüm hakları saklıdır.** Kodun herkese açık görüntülenebilmesi kullanım veya kopyalama izni vermez. Ayrıntılar için `LICENSE` dosyasına bakın.
