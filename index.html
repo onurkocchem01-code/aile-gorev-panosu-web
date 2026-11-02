@@ -277,6 +277,16 @@ textarea.input{min-height:120px;font-family:ui-monospace,Menlo,monospace;font-si
 .row.addtask .plus{width:30px;height:30px;border-radius:50%;border:2px dashed var(--tc);display:grid;place-items:center;flex-shrink:0}
 .row.addtask .plus svg{width:16px;height:16px}
 .catlist{border-top:4px solid var(--tc)}
+.priv h3{font-size:16px;margin:16px 0 6px}.priv p,.priv li{color:var(--ink-2);line-height:1.6}.priv ul{padding-left:20px;margin:0}.priv{max-width:46em}
+.linkbtn{border:0;background:none;padding:0;color:var(--accent);font-weight:700;text-decoration:underline;cursor:pointer;font-size:inherit}
+.tick.consent{background:var(--accent-soft);border-color:transparent}
+.shake{animation:shake .5s}@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@media (prefers-reduced-motion:reduce){.shake{animation:none;outline:2px solid var(--low)}}
+.pin-in{font-size:22px;letter-spacing:.4em;text-align:center;font-family:var(--f-display);font-weight:800}
+.pin-msg{color:var(--low);font-weight:700;margin:0;min-height:1.2em;font-size:13.5px}
+.danger-zone{border-color:var(--low-soft)}.danger-zone h2{color:var(--low)}
+.btn.danger.solid{background:var(--low);color:#fff;border-color:var(--low)}
+.note.warnnote{background:var(--warn-soft);border-color:transparent}
 .days{display:flex;gap:6px;flex-wrap:wrap}
 .days button{width:46px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:13px;color:var(--ink-2)}
 .days button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -516,8 +526,10 @@ function fbAdapter(){
     get:async()=>snapW(await r.get()),
     set:async d=>{try{await r.set(d)}catch(e){throw err(e)}},
     update:async d=>{try{await r.set(nullsToDel(d),{merge:true})}catch(e){throw err(e)}},
+    delete:async()=>{try{await r.delete()}catch(e){throw err(e)}},
     onSnapshot:(n,er)=>r.onSnapshot({includeMetadataChanges:true},x=>n(snapW(x)),e=>er&&er(err(e)))}};
   const colW=(p,q)=>{q=q||fs.collection(mapPath(p));return {where:(f,op,v)=>colW(p,q.where(f,op,v)),
+    get:async()=>{try{const x=await q.get({source:"server"});return {docs:x.docs.map(snapW),size:x.size,empty:x.empty}}catch(e){throw err(e)}},
     onSnapshot:(n,er)=>q.onSnapshot({includeMetadataChanges:true},x=>n({docs:x.docs.map(snapW),size:x.size,empty:x.empty,metadata:{fromCache:x.metadata.fromCache}}),e=>er&&er(err(e)))}};
   return {doc:docW,collection:p=>colW(p)};
 }
@@ -641,7 +653,7 @@ function render(){
   if(S.mode==="cloud"&&!S.ready)return v.innerHTML=`<div class="empty"><h3>Aile bilgileri getiriliyor</h3><p>Aile kodu: <b>${esc(fmtCode(S.code))}</b></p>${S.note?`<p class="note">${esc(S.note)}</p>`:""}<button class="btn" data-act="leave">Başka bir aile koduyla gir</button></div>`;
   if(S.mode==="cloud"&&!S.exists)return v.innerHTML=`<div class="onb"><h1>Bu kodla bir aile bulunamadı</h1><p class="lead">“${esc(S.code)}” kodunu kontrol edin. Kod, aileyi kuran kişinin Aile sayfasında yazar.</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="leave">Geri dön</button></div></div>`;
   if(S.mode==="local"&&!S.state.created)return v.innerHTML=onboarding();
-  const pages={bugun:pBugun,gorevler:pGorevler,kisiler:pKisiler,analiz:pAnaliz,aile:pAile,rehber:pRehber};
+  const pages={bugun:pBugun,gorevler:pGorevler,kisiler:pKisiler,analiz:pAnaliz,aile:pAile,rehber:pRehber,gizlilik:pGizlilik};
   const fn=pages[S.view]||pBugun;
   const note=S.note?`<div class="note">${esc(S.note)}</div>`:"";
   const ro=S.readOnly?`<div class="note"><b>Yalnızca görüntüleme.</b> Bu bağlantıyla yapılan değişiklikler kaydedilmiyor.</div>`:"";
@@ -723,6 +735,7 @@ function setupScreen(){
     <div class="field"><label for="joinCode">Aile kodu</label><input class="input" id="joinCode" placeholder="Örn. K7MP3-QX9TB" maxlength="11" autocomplete="off" style="text-transform:uppercase;letter-spacing:.18em;font-size:22px;font-family:var(--f-display);font-weight:800;text-align:center"></div>
     <div class="actions"><button class="btn primary lg" data-act="join">Panoya katıl</button></div>
    </div>
+   <p class="muted" style="margin:0;font-size:13px">Katılarak <button class="linkbtn" data-act="showPrivacy">aydınlatma metnini</button> okuduğunuzu kabul edersiniz.</p>
    <p class="note"><b>Kodu bulamıyor musun?</b> Panoyu kuran kişi Aile sekmesinde “Aile kodu” kutusundaki “Kodu kopyala” düğmesiyle sana gönderebilir.</p>
   </div>`;
   return `<div class="setup">${top}
@@ -733,7 +746,9 @@ function setupScreen(){
       <div class="mini">${onbDraft.list.map((x,i)=>`<span>${esc(x.n)} <small class="muted">${ROLES[x.r]}</small><button data-act="onbDel" data-i="${i}" aria-label="${esc(x.n)} kaldır">×</button></span>`).join("")||'<span class="muted" style="background:none;border:0">Henüz üye eklenmedi</span>'}</div>
       <div class="addrow"><input class="input" id="mName" placeholder="İsim (örn. Elif)"><select class="input" id="mRole">${Object.entries(ROLES).map(([k,l])=>`<option value="${k}" ${k==="cocuk"?"selected":""}>${l}</option>`).join("")}</select><button class="btn" data-act="onbAdd">${ICON.plus}Ekle</button></div>
     </div>
+    <div class="field"><label for="fPin">Ebeveyn PIN'i <span class="muted" style="font-weight:500">isteğe bağlı, 4–6 rakam</span></label><input class="input pin-in" id="fPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="••••"><span class="muted" style="font-size:12.5px">Belirlerseniz görev atama ve aile ayarları yalnızca bu PIN ile açılır. Sonra da ekleyebilirsiniz.</span></div>
     <label class="tick"><input type="checkbox" id="starter" ${onbDraft.starter?"checked":""}> <span><b>Başlangıç görevlerini ata.</b> Çocuklara ve öğrencilere günlük rutinler, ebeveynlere ev yönetimi işleri sırayla paylaştırılır. Sonra istediğin gibi değiştirebilirsin.</span></label>
+    <label class="tick consent"><input type="checkbox" id="kvkkOk" ${onbDraft.kvkk?"checked":""}> <span><b>Ebeveyn ya da veliyim.</b> <button class="linkbtn" data-act="showPrivacy">Aydınlatma metnini</button> okudum; aile üyelerinin adlarının ve görev kayıtlarının bu uygulamada tutulmasını onaylıyorum.</span></label>
     <div class="actions"><button class="btn primary lg" data-act="create">Aileyi oluştur</button></div>
    </div>
    ${cloud?`<p class="note"><b>Sonraki adım:</b> Aile oluşunca Aile sayfasında 10 karakterlik bir kod göreceksin. Bu kodu aile üyelerine gönder; herkes kendi telefonundan katılır.</p>`:`<p class="note"><b>Bu cihazda saklanır.</b> ${window.__AGP_APK?"Uygulama verileri bu telefonda tutar.":"Bu bağlantıyla ortak kayıt yapılamadığı için veriler bu tarayıcıda tutulur."} Evde ortak bir tablet veya telefonda kullanmak için idealdir; Aile sayfasından yedek alabilirsin.</p>`}
@@ -757,6 +772,7 @@ function pBugun(){
   dueList.sort((a,b)=>a.di.d-b.di.d);
   const daySeg=`<div class="seg" role="group" aria-label="Gün"><button data-act="dayOff" data-v="-1" aria-pressed="${S.dayOff===-1}">Dün</button><button data-act="dayOff" data-v="0" aria-pressed="${!S.dayOff}">Bugün</button></div>`;
   return head(S.state.name||"Bugün",(S.dayOff?"Dünü tamamlıyorsunuz":greet())+" · "+dateStr[0].toLocaleUpperCase(TR)+dateStr.slice(1),daySeg)+`
+  ${!S.state.kvkk&&!S.readOnly?`<div class="note warnnote"><b>Veli onayı bekleniyor.</b> Aile sayfasında aydınlatma metnini okuyup onaylayın. <button class="linkbtn" data-go="aile">Aile sayfasına git</button></div>`:""}
   ${S.dayOff?`<div class="note"><b>Dünün listesi açık.</b> Unutulan işleri işaretleyin; dünün oranı düzelir. Bitince “Bugün”e dönün.</div>`:""}
   <div class="card hero">${ring(dn,tot,dayLbl)}
     <div class="kpis">
@@ -965,6 +981,81 @@ function remindersCard(){
   </section>`;
 }
 function saveRem(){const o={on:$("#remOn").checked,title:S.state.name||""};for(const k of ["sabah","ogle","aksam"])o[k]=$("#rem-"+k).value;window.AndroidBridge.setReminders(JSON.stringify(o));toast(o.on?"Hatırlatmalar kuruldu":"Hatırlatmalar kapatıldı");setTimeout(render,600)}
+/* ---------- Aydınlatma metni ---------- */
+function storageWhere(){
+  if(S.fb)return "Google Firebase (Cloud Firestore) sunucularında, Almanya'daki Frankfurt (europe-west3) veri merkezinde";
+  if(S.mode==="cloud")return "bu sayfanın çalıştığı claude.ai (Anthropic) altyapısında";
+  return "yalnızca bu cihazda (tarayıcının ya da uygulamanın yerel deposunda)";
+}
+function privacyHtml(){
+  return `<div class="priv">
+  <p class="lead" style="font-size:16px">Aile Görev Panosu'nu kullanmadan önce hangi bilgilerin nasıl tutulduğunu bilmenizi isteriz. Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) kapsamında bilgilendirme amacı taşır.</p>
+  <h3>Hangi bilgiler tutulur?</h3>
+  <ul><li>Aile adı ve aile üyelerinin adları ile rolleri (anne, baba, çocuk, öğrenci). <b>Gerçek ad yerine takma ad veya yalnızca ilk ad kullanabilirsiniz.</b></li>
+  <li>Görevler, kimlere atandıkları, hangi gün yapıldıkları ve kimin işaretlediği.</li>
+  <li>Buzdolabı notları ve ebeveyn PIN'inin geri çevrilemez özeti (PIN'in kendisi saklanmaz).</li></ul>
+  <p>E-posta, telefon numarası, konum, fotoğraf, T.C. kimlik numarası gibi bilgiler <b>istenmez ve tutulmaz</b>. Reklam veya takip aracı kullanılmaz.</p>
+  <h3>Nerede tutulur, kim görür?</h3>
+  <p>Bilgiler ${storageWhere()} saklanır. ${S.fb?"Bu sunucular Türkiye dışında olduğu için bilgiler yurt dışında tutulur. ":""}Bir aileye ait kayıtları yalnızca o ailenin 10 karakterlik aile kodunu bilenler görebilir; aileler listelenemez. Aile kodunu yalnızca güvendiğiniz aile üyeleriyle paylaşın.</p>
+  <h3>Ne amaçla kullanılır?</h3>
+  <p>Yalnızca ev görevlerinin aile içinde planlanması, işaretlenmesi ve aileye özet gösterilmesi için. Başka bir amaçla kullanılmaz, kimseyle paylaşılmaz, satılmaz.</p>
+  <h3>Ne kadar süre tutulur?</h3>
+  <p>Aile, kayıtlarını silene kadar. Aile sayfasındaki <b>“Ailemi sil”</b> ile bütün kayıtlar kalıcı olarak silinir.</p>
+  <h3>Haklarınız</h3>
+  <p>KVKK'nın 11. maddesi uyarınca bilgilerinize erişme, düzeltilmesini ve silinmesini isteme haklarınız vardır. Uygulama içinde bilgileri görebilir, düzenleyebilir, yedek dosyası olarak indirebilir ve tamamen silebilirsiniz.</p>
+  <h3>Çocuklar</h3>
+  <p>Aileyi kuran kişi, ebeveyn ya da veli olduğunu ve aileye eklediği çocukların bilgilerinin bu amaçla kaydedilmesine onay verdiğini beyan eder.</p>
+  <p class="muted">Sürüm 1 · Kasım 2026</p></div>`;
+}
+function pGizlilik(){return head("Aydınlatma metni","Kişisel veriler")+`<section class="card">${privacyHtml()}</section>`}
+
+/* ---------- Ebeveyn PIN'i ---------- */
+async function hashPin(pin,salt){
+  const txt="agp|"+salt+"|"+pin;
+  try{if(crypto&&crypto.subtle){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(txt));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}}catch(e){}
+  let h=2166136261;for(let i=0;i<txt.length;i++){h^=txt.charCodeAt(i);h=Math.imul(h,16777619)}return "f"+(h>>>0).toString(16);
+}
+function hasPin(){return !!(S.state.pin&&S.state.pin.h)}
+function pinOk(){return !hasPin()||Date.now()<(S.unlockUntil||0)}
+let pendingEl=null,pinFails=0,pinWait=0;
+const PROT=new Set(["newTask","newTaskCat","editTask","editMember","addMember","saveName","importBk","shareFam","askDelFam","showCode","copyCode","kvkkAccept","pinChange","pinRemove"]);
+function pinSheet(mode){
+  const t={unlock:["Ebeveyn PIN'i","Bu işlem için ebeveyn PIN'ini girin."],set:["PIN belirleyin","4 ile 6 haneli bir PIN seçin. Görev atama, üye ve aile ayarları bu PIN ile açılır; çocuklar yine kendi görevlerini işaretleyebilir."],reset:["PIN'i sıfırla",S.mode==="cloud"?"PIN'i unuttuysanız, ailenizin 10 karakterlik aile kodunu girerek PIN'i kaldırabilirsiniz.":"PIN'i unuttuysanız, aile adını aynen yazarak PIN'i kaldırabilirsiniz."]}[mode];
+  openSheet(`<div><div class="eyebrow">Ebeveyn kontrolü</div><h3>${t[0]}</h3></div><p class="muted" style="margin:0">${t[1]}</p>
+  ${mode==="reset"?`<div class="field"><label for="pinReset">${S.mode==="cloud"?"Aile kodu":"Aile adı"}</label><input class="input" id="pinReset" autocomplete="off"></div>`
+   :`<div class="field"><label for="pin1">${mode==="set"?"Yeni PIN":"PIN"}</label><input class="input pin-in" id="pin1" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"></div>
+   ${mode==="set"?`<div class="field"><label for="pin2">PIN'i tekrar yazın</label><input class="input pin-in" id="pin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"></div>`:""}`}
+  <p class="pin-msg" id="pinMsg" role="alert"></p>
+  <div class="actions">${mode==="unlock"?`<button class="btn" data-act="pinForgot" style="margin-right:auto">PIN'i unuttum</button>`:""}<button class="btn" data-act="closeSheet">Vazgeç</button><button class="btn primary" data-act="pinSubmit">${mode==="set"?"PIN'i kaydet":mode==="reset"?"PIN'i kaldır":"Aç"}</button></div>`);
+  sheet={pinMode:mode};
+  setTimeout(()=>{const i=$("#pin1")||$("#pinReset");if(i)i.focus()},40);
+}
+async function pinSubmit(){
+  const mode=sheet&&sheet.pinMode;const msg=t=>{const m=$("#pinMsg");if(m)m.textContent=t};
+  if(mode==="set"){const a=($("#pin1").value||"").trim(),b=($("#pin2").value||"").trim();
+    if(!/^[0-9]{4,6}$/.test(a))return msg("PIN 4 ile 6 rakamdan oluşmalı.");if(a!==b)return msg("İki PIN aynı değil.");
+    const salt=Math.random().toString(36).slice(2,10);const h=await hashPin(a,salt);closeSheet();await patchState({pin:{h,s:salt}});S.unlockUntil=Date.now()+10*60e3;toast("Ebeveyn PIN'i kaydedildi");return}
+  if(mode==="reset"){const v=($("#pinReset").value||"").trim();
+    const ok=S.mode==="cloud"?v.toUpperCase().replace(/[^A-Z0-9]/g,"")===S.code:v.toLocaleLowerCase(TR)===(S.state.name||"").trim().toLocaleLowerCase(TR);
+    if(!ok)return msg(S.mode==="cloud"?"Aile kodu eşleşmedi.":"Aile adı eşleşmedi.");closeSheet();await patchState({pin:null});S.unlockUntil=0;toast("PIN kaldırıldı. Aile sayfasından yeni PIN belirleyebilirsiniz.");return}
+  if(Date.now()<pinWait)return msg("Çok fazla deneme. "+Math.ceil((pinWait-Date.now())/1000)+" saniye bekleyin.");
+  const v=($("#pin1").value||"").trim();const h=await hashPin(v,S.state.pin.s);
+  if(h!==S.state.pin.h){pinFails++;if(pinFails>=5){pinWait=Date.now()+30000;pinFails=0}$("#pin1").value="";$("#pin1").focus();return msg("PIN yanlış.")}
+  pinFails=0;S.unlockUntil=Date.now()+10*60e3;closeSheet();toast("Ebeveyn modu 10 dakika açık");
+  const el=pendingEl;pendingEl=null;if(el&&el.isConnected)el.click();else render();
+}
+function pinCard(){
+  if(S.readOnly)return "";
+  if(!hasPin())return `<section class="card pinc"><div class="card-head"><h2>Ebeveyn PIN'i</h2><span class="pill p-none">Kapalı</span></div><p class="muted" style="margin-top:0">PIN belirlerseniz görev atama, üye ekleme ve aile ayarları yalnızca PIN ile açılır. Çocuklar kendi görevlerini yine işaretleyebilir, not bırakabilir.</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="pinSet">PIN belirle</button></div></section>`;
+  const open=pinOk();
+  return `<section class="card pinc"><div class="card-head"><h2>Ebeveyn PIN'i</h2><span class="pill ${open?"p-warn":"p-good"}">${open?"Ebeveyn modu açık":"Kilitli"}</span></div><p class="muted" style="margin-top:0">${open?"Ayarlar şu an açık; 10 dakika sonra kendiliğinden kilitlenir.":"Görev atama, üye ve aile ayarları PIN ile açılır."}</p>
+   <div class="actions" style="justify-content:flex-start">${open?`<button class="btn" data-act="pinLock">Şimdi kilitle</button>`:`<button class="btn primary" data-act="pinUnlock">Kilidi aç</button>`}<button class="btn" data-act="pinChange">PIN'i değiştir</button><button class="btn" data-act="pinRemove">PIN'i kaldır</button></div></section>`;
+}
+function kvkkCard(){
+  if(S.state.kvkk)return `<section class="card"><div class="card-head"><h2>Kişisel veriler</h2><span class="pill p-good">Onaylandı</span></div><p class="muted" style="margin-top:0">Veli onayı ${new Date(S.state.kvkk.at||Date.now()).toLocaleDateString(TR,{day:"numeric",month:"long",year:"numeric"})} tarihinde verildi.</p><div class="actions" style="justify-content:flex-start"><button class="btn" data-go="gizlilik">Aydınlatma metnini oku</button></div></section>`;
+  return `<section class="card kvkk-need"><div class="card-head"><h2>Veli onayı gerekiyor</h2><span class="pill p-warn">Bekliyor</span></div><p style="margin-top:0">Lütfen aydınlatma metnini okuyun ve ebeveyn ya da veli olarak, aile üyelerinin bilgilerinin bu uygulamada tutulmasını onaylayın.</p><div class="actions" style="justify-content:flex-start"><button class="btn" data-go="gizlilik">Metni oku</button>${S.readOnly?"":`<button class="btn primary" data-act="kvkkAccept">Okudum, onaylıyorum</button>`}</div></section>`;
+}
+function delFamCard(){if(S.readOnly)return "";return `<section class="card danger-zone"><div class="card-head"><h2>Ailemi sil</h2></div><p class="muted" style="margin-top:0">Ailenizin bütün üyeleri, görevleri, geçmişi ve notları ${S.mode==="cloud"?"sunucudan ve bu cihazdan":"bu cihazdan"} kalıcı olarak silinir. Bu işlem geri alınamaz.</p><div class="actions" style="justify-content:flex-start"><button class="btn danger" data-act="askDelFam">Ailemi ve tüm verilerini sil</button></div></section>`}
 function pRehber(){return head("Nasıl kullanılır","Rehber")+`<div class="land">${guideSections(false)}</div>`}
 function roleCard(m){const k=m.role==="ogrenci"?"o":(RGROUP[m.role]||"a");const g=GUIDE.find(x=>x.k===k);return `<details class="card rolecard"><summary><span class="role-ic sm r-${k}">${GICON[k]}</span><span><b>${esc(m.name)} bu panoda ne yapar?</b><span class="muted" style="display:block">${g.lead}</span></span></summary><ul>${g.does.map(d=>`<li>${d}</li>`).join("")}</ul></details>`}
 function pAile(){
@@ -976,11 +1067,13 @@ function pAile(){
   </section>
   ${S.mode==="cloud"?`<section class="card"><div class="card-head"><h2>Aile kodu</h2></div>
    <p style="margin:0 0 10px">Aile üyeleri bu panoyu kendi telefonlarında açıp aşağıdaki kodu girerek aynı listeyi görür ve işaretler.</p>
-   <div class="toolbar"><span class="code num">${esc(fmtCode(S.code))}</span><button class="btn" data-act="copyCode">Kodu kopyala</button><button class="btn" data-act="leave">Bu cihazda aileden çık</button></div></section>`
+   <div class="toolbar"><span class="code num">${hasPin()&&!pinOk()?"•••••-•••••":esc(fmtCode(S.code))}</span>${hasPin()&&!pinOk()?`<button class="btn" data-act="showCode">Kodu göster</button>`:""}<button class="btn" data-act="copyCode">Kodu kopyala</button><button class="btn" data-act="leave">Bu cihazda aileden çık</button></div></section>`
   :S.fb?`<section class="card share"><div class="card-head"><h2>Aileyi diğer telefonlara açın</h2></div><p style="margin:0 0 12px">Şu an listeniz yalnızca bu telefonda. Paylaşıma açınca 10 karakterlik bir aile kodu oluşur; anne, baba ve çocuklar kendi telefonlarında bu kodla aynı panoyu görür ve işaretler. Mevcut görevleriniz ve geçmişiniz aynen taşınır.</p>
    <div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="shareFam">Paylaşıma aç ve kod oluştur</button><button class="btn" data-act="joinOther">Başka bir aile koduyla katıl</button></div></section>`
   :`<section class="card"><div class="card-head"><h2>Bu cihazda saklanıyor</h2></div><p style="margin:0" class="muted">${window.__AGP_APK?"Uygulama verileri yalnızca bu cihazda tutar. Uygulamayı silerseniz liste kaybolur; düzenli yedek almanız iyi olur. Yedeği başka bir telefondaki uygulamaya yükleyerek listeyi taşıyabilirsiniz.":"Bu bağlantıda ortak kayıt izni olmadığı için veriler yalnızca bu tarayıcıda tutulur. Tarayıcı verilerini silerseniz liste kaybolur; düzenli yedek almanız iyi olur."}</p></section>`}
   ${ms.length?`<section class="card"><div class="card-head"><h2>Bu cihazı kim kullanıyor?</h2></div><p class="muted" style="margin-top:0">Seçerseniz, bu cihazdan işaretlenen görevlerde kimin işaretlediği görünür. Ortak tablet için “Ortak cihaz” bırakın.</p><select class="input" id="meSel"><option value="">Ortak cihaz</option>${ms.map(m=>`<option value="${m.id}" ${me()===m.id?"selected":""}>${esc(m.name)}</option>`).join("")}</select></section>`:""}
+  ${pinCard()}
+  ${kvkkCard()}
   ${remindersCard()}
   ${!window.__AGP_WEB&&!window.__AGP_APK?`<section class="card"><div class="card-head"><h2>Telefonlar için</h2></div>${siteHint()}</section>`:""}
   ${window.__AGP_WEB?`<section class="card"><div class="card-head"><h2>Telefona ekleyin</h2></div>${installHint()||'<p class="muted" style="margin:0">Pano bu cihazda uygulama olarak açık.</p>'}</section>`:""}
@@ -990,7 +1083,8 @@ function pAile(){
    <div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="saveBk">Yedeği dosya olarak kaydet</button>${S.readOnly?"":`<label class="btn" for="bkFile">Yedek dosyasını aç</label><input type="file" id="bkFile" accept=".json,application/json,text/plain" hidden>`}</div>
    <details class="bk-more"><summary>Metin olarak kopyala veya yapıştır</summary>
    <textarea class="input" id="bk" aria-label="Yedek metni" placeholder="Yedek metni burada görünür veya buraya yapıştırılır"></textarea>
-   <div class="actions" style="margin-top:10px"><button class="btn" data-act="exportBk">Metni oluştur ve kopyala</button>${S.readOnly?"":`<button class="btn" data-act="importBk">Metni yükle</button>`}</div></details></section>`;
+   <div class="actions" style="margin-top:10px"><button class="btn" data-act="exportBk">Metni oluştur ve kopyala</button>${S.readOnly?"":`<button class="btn" data-act="importBk">Metni yükle</button>`}</div></details></section>
+  ${delFamCard()}`;
 }
 
 /* ---------- alt pencereler ---------- */
@@ -1027,9 +1121,26 @@ async function toggleTask(tid,m,K,who){const t=allTasks().find(x=>x.id===tid);if
   else if(t.f==="g"){await setLog(K,lk(t.id,m),d?null:val)}
   else{if(d){for(const k of weekDays(monday(kDate(K))))if(logHas(k,t.id,m))await setLog(k,lk(t.id,m),null)}else await setLog(K,lk(t.id,m),val)}
   return !d}
-function go(v){S.view=v;if(location.hash!=="#"+v){try{history.replaceState(null,"","#"+v)}catch(e){location.hash=v}}if(v!=="rehber")ls.set("agp-sekme",v);render();window.scrollTo(0,0)}
+function go(v){S.view=v;if(location.hash!=="#"+v){try{history.replaceState(null,"","#"+v)}catch(e){location.hash=v}}if(v!=="rehber"&&v!=="gizlilik")ls.set("agp-sekme",v);render();window.scrollTo(0,0)}
 async function copy(text){try{await navigator.clipboard.writeText(text);toast("Kopyalandı")}catch(e){toast("Kopyalanamadı; metni seçip elle kopyalayın")}}
 function nextColor(){const used=members().map(m=>m.color);return MCOLORS.find(c=>!used.includes(c))||MCOLORS[members().length%MCOLORS.length]}
+function withTimeout(p,ms){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej({code:"timeout"}),ms))])}
+async function deleteFamily(){
+  const v=($("#delName").value||"").trim();const msg=t=>{const m=$("#delMsg");if(m)m.textContent=t};
+  if(v.toLocaleLowerCase(TR)!==(S.state.name||"").trim().toLocaleLowerCase(TR))return msg("Aile adı eşleşmedi.");
+  const wipeLocal=()=>{try{localStorage.removeItem(LOCAL_KEY);localStorage.removeItem(LOCAL_KEY+"-yedek")}catch(e){}ls.del("agp-kod");ls.del("agp-ben");ls.del("agp-sekme")};
+  if(S.mode==="local"){wipeLocal();S.state={name:"",members:{},tasks:{}};S.logs={};S.unlockUntil=0;S.setup=null;closeSheet();go("bugun");toast("Aileniz ve tüm verileri bu cihazdan silindi");return}
+  if(navigator.onLine===false)return msg("İnternet bağlantısı yok. Silme için bağlantı gerekiyor.");
+  const btn=document.querySelector('[data-act="doDelFam"]');if(btn){btn.disabled=true;btn.textContent="Siliniyor…"}
+  const code=S.code,b="aile-"+code;stopCloud();
+  try{
+    await withTimeout(db.doc(b+"/durum").update({silmeTalebi:Date.now()}),15000);
+    const qs=await withTimeout(db.collection(b+"/durum/gun").where("date",">=","0").get(),15000);
+    for(const d of qs.docs)await withTimeout(db.doc(b+"/durum/gun/"+d.id).delete(),15000);
+    await withTimeout(db.doc(b+"/durum").delete(),15000);
+  }catch(e){if(btn){btn.disabled=false;btn.textContent="Kalıcı olarak sil"}startCloud(code);return msg("Silinemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.")}
+  wipeLocal();S.code=null;S.ready=false;S.state={name:"",members:{},tasks:{}};S.logs={};S.unlockUntil=0;S.setup=null;closeSheet();go("bugun");toast("Aileniz ve tüm verileri kalıcı olarak silindi");
+}
 function backupText(){return JSON.stringify({uygulama:"aile-gorev-panosu",surum:1,tarih:new Date().toISOString(),state:S.state,logs:S.logs})}
 async function importBackupText(txt){let o;try{o=JSON.parse(txt)}catch(e){o=null}
   if(!o||o.uygulama!=="aile-gorev-panosu"||!o.state){toast("Bu dosya geçerli bir yedek değil");return}
@@ -1045,7 +1156,25 @@ document.addEventListener("click",async ev=>{
   const el=ev.target.closest("[data-act]");if(!el)return;
   const act=el.dataset.act;
   if(act==="closeSheet"&&el.classList.contains("scrim")&&ev.target!==el)return;
+  if(PROT.has(act)&&!pinOk()&&!(sheet&&sheet.pinMode)){pendingEl=el;pinSheet("unlock");return}
   switch(act){
+  case "pinSet":pinSheet("set");break;
+  case "pinChange":pinSheet("set");break;
+  case "pinUnlock":pinSheet("unlock");break;
+  case "pinForgot":pinSheet("reset");break;
+  case "pinSubmit":await pinSubmit();break;
+  case "pinLock":S.unlockUntil=0;toast("Kilitlendi");render();break;
+  case "pinRemove":await patchState({pin:null});S.unlockUntil=0;toast("PIN kaldırıldı");break;
+  case "showCode":render();break;
+  case "showPrivacy":openSheet(`<div><div class="eyebrow">Kişisel veriler</div><h3>Aydınlatma metni</h3></div>${privacyHtml()}<div class="actions"><button class="btn primary" data-act="closeSheet">Kapat</button></div>`);break;
+  case "kvkkAccept":await patchState({kvkk:{v:1,at:Date.now()}});toast("Teşekkürler, onay kaydedildi");break;
+  case "askDelFam":openSheet(`<div><div class="eyebrow">Kalıcı silme</div><h3>Ailemi ve tüm verilerini sil</h3></div>
+    <p style="margin:0">Bu işlem <b>${esc(S.state.name||"aileniz")}</b> için bütün üyeleri, görevleri, geçmişi ve notları ${S.mode==="cloud"?"sunucudan ve bu cihazdan":"bu cihazdan"} kalıcı olarak siler. ${S.mode==="cloud"?"Aynı aile koduyla bağlı diğer telefonlarda da pano kapanır. ":""}Geri alınamaz.</p>
+    <div class="note"><b>Önce yedek almak ister misiniz?</b> <button class="linkbtn" data-act="saveBk">Yedeği dosya olarak kaydet</button></div>
+    <div class="field"><label for="delName">Onaylamak için aile adını yazın: <b>${esc(S.state.name||"")}</b></label><input class="input" id="delName" autocomplete="off"></div>
+    <p class="pin-msg" id="delMsg" role="alert"></p>
+    <div class="actions"><button class="btn" data-act="closeSheet">Vazgeç</button><button class="btn danger solid" data-act="doDelFam">Kalıcı olarak sil</button></div>`);setTimeout(()=>{const i=$("#delName");i&&i.focus()},40);break;
+  case "doDelFam":await deleteFamily();break;
   case "onbAdd":{const n=$("#mName").value.trim();if(!n){$("#mName").focus();return}onbDraft.name=$("#fName").value;onbDraft.list.push({n,r:$("#mRole").value});render();$("#mName").focus();break}
   case "openSetup":S.setup=el.dataset.v;render();window.scrollTo(0,0);{const f=$("#fName")||$("#joinCode");if(f)f.focus({preventScroll:true})}break;
   case "backLocal":S.joinFromLocal=false;S.setup=null;loadLocal();S.mode="local";S.ready=true;go("aile");break;
@@ -1053,6 +1182,9 @@ document.addEventListener("click",async ev=>{
   case "scrollTo":{const t=document.getElementById(el.dataset.id);if(t)t.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});break}
   case "onbDel":onbDraft.name=$("#fName").value;onbDraft.list.splice(+el.dataset.i,1);render();break;
   case "create":{
+    if(!$("#kvkkOk").checked){toast("Devam etmek için veli onayını işaretleyin");$("#kvkkOk").closest("label").classList.add("shake");setTimeout(()=>{const l=$("#kvkkOk");l&&l.closest("label").classList.remove("shake")},600);return}
+    const pinV=($("#fPin").value||"").trim();if(pinV&&!/^[0-9]{4,6}$/.test(pinV)){toast("PIN 4 ile 6 rakamdan oluşmalı");$("#fPin").focus();return}
+    let pinObj=null;if(pinV){const salt=Math.random().toString(36).slice(2,10);pinObj={h:await hashPin(pinV,salt),s:salt}}
     const name=$("#fName").value.trim()||"Ailemiz";const mem={};
     onbDraft.list.forEach((x,i)=>{mem[uid()]={name:x.n,role:x.r,color:MCOLORS[i%MCOLORS.length],order:i}});
     const tasks={};
@@ -1065,8 +1197,8 @@ document.addEventListener("click",async ev=>{
       if(parents.length)STARTER_E.forEach((t,i)=>add(t,parents[i%parents.length]));
       STARTER_A.forEach(t=>ids.forEach(m=>add(t,m)));
     }
-    const st={name,members:mem,tasks,created:Date.now()};
-    if(S.mode==="local"){S.state=st;S.logs={};saveLocal();go("bugun");toast("Aile oluşturuldu");return}
+    const st={name,members:mem,tasks,created:Date.now(),kvkk:{v:1,at:Date.now()}};if(pinObj){st.pin=pinObj;S.unlockUntil=Date.now()+10*60e3}
+    if(S.mode==="local"){S.state=st;S.logs={};S.setup=null;saveLocal();go("bugun");toast("Aile oluşturuldu");return}
     const code=genCode();
     if(S.fb){db.doc("aile-"+code+"/durum").set(st).catch(e=>toast("Aile sunucuya kaydedilemedi. İnternet bağlantınızı kontrol edin."))}
     else try{await db.doc("aile-"+code+"/durum").set(st)}catch(e){if(e&&e.code==="invalid_argument"){S.mode="local";S.state=st;saveLocal();go("bugun");toast("Ortak kayıt yapılamadı; aile bu cihazda oluşturuldu");return}toast("Aile oluşturulamadı. Bağlantınızı kontrol edip tekrar deneyin.");return}
@@ -1152,6 +1284,7 @@ document.addEventListener("click",async ev=>{
   }
 });
 document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&(e.target.id==="pin1"||e.target.id==="pin2"||e.target.id==="pinReset")){e.preventDefault();pinSubmit();return}
   if(e.key==="Escape"&&sheet)closeSheet();else if(e.key==="Escape"&&S.focus){S.focus=null;render()}
   if((e.key==="Enter"||e.key===" ")&&e.target.matches(".row.tap")){e.preventDefault();e.target.click()}
   if(e.key==="Enter"&&e.target.id==="mName"){e.preventDefault();document.querySelector('[data-act="onbAdd"]').click()}
@@ -1161,15 +1294,17 @@ document.addEventListener("change",e=>{
   if(e.target.id==="remOn"||/^rem-/.test(e.target.id)){saveRem();return}
   if(e.target.id==="tRot"){syncDraftInputs();taskSheet();return}
   if(e.target.id==="meSel"){if(e.target.value)ls.set("agp-ben",e.target.value);else ls.del("agp-ben");toast(e.target.value?"Bu cihaz "+memberById(e.target.value).name+" olarak ayarlandı":"Ortak cihaz olarak ayarlandı");render()}
+  if(e.target.id==="bkFile"&&e.target.files&&e.target.files[0]&&!pinOk()){e.target.value="";pinSheet("unlock");toast("Yedeği yüklemek için önce ebeveyn PIN'ini girin");return}
   if(e.target.id==="bkFile"&&e.target.files&&e.target.files[0]){const f=e.target.files[0];const r=new FileReader();r.onload=()=>importBackupText(String(r.result||""));r.readAsText(f);e.target.value=""}
 });
 document.addEventListener("input",e=>{
   if(e.target.id==="q"){S.q=e.target.value;const pos=e.target.selectionStart;render();const q=$("#q");if(q){q.focus();try{q.setSelectionRange(pos,pos)}catch(_){}}}
   if(e.target.id==="fName")onbDraft.name=e.target.value;
   if(e.target.id==="starter")onbDraft.starter=e.target.checked;
+  if(e.target.id==="kvkkOk")onbDraft.kvkk=e.target.checked;
   if(e.target.id==="nText"){const c=$("#nCount");if(c)c.textContent=e.target.value.length+"/140"}
 });
-const VIEWS=TABS.map(t=>t[0]).concat("rehber");
+const VIEWS=TABS.map(t=>t[0]).concat("rehber","gizlilik");
 window.__agpBack=()=>{if(sheet){closeSheet();return true}if(S.view==="gorevler"&&(S.q||CAT[S.cat])){S.q="";S.cat="all";render();return true}if(S.focus){S.focus=null;render();return true}if(S.setup){S.setup=null;render();return true}const fam=S.mode==="local"?!!S.state.created:(S.ready&&S.exists&&S.code);if(fam&&S.view!=="bugun"){go("bugun");return true}return false};
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view){S.view=h;render()}});
 
