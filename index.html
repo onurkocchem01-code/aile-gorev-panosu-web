@@ -588,8 +588,8 @@ function memberStats(mid,days){
   let exp=0,done=0;const byCat={},byTask=[];
   for(const t of allTasks()){
     const at=t.as[mid];if(!at)continue;const atDay=dkey(new Date(at));let e=0,d=0;
-    if(t.f==="g"){for(let i=0;i<days;i++){const k=dkey(addDays(start,i));if(k<atDay||!activeOn(t,k)||!assignedOn(t,mid,k))continue;const h=logHas(k,t.id,mid);if(k===tk&&!h)continue;e++;if(h)d++}}
-    else if(t.f==="h"){let w=monday(start);while(w<=today){const wk=dkey(w),we=dkey(addDays(w,6));if(we>=atDay&&assignedOn(t,mid,wk)){const h=weekDays(w).some(k=>logHas(k,t.id,mid));if(!(wk===thisWeek&&!h)){e++;if(h)d++}}w=addDays(w,7)}}
+    if(t.f==="g"){for(let i=0;i<days;i++){const k=dkey(addDays(start,i));if(k<atDay||!activeOn(t,k)||!assignedOn(t,mid,k))continue;const h=logHas(k,t.id,mid);e++;if(h)d++}}
+    else if(t.f==="h"){let w=monday(start);while(w<=today){const wk=dkey(w),we=dkey(addDays(w,6));if(we>=atDay&&assignedOn(t,mid,wk)){const h=weekDays(w).some(k=>logHas(k,t.id,mid));e++;if(h)d++}w=addDays(w,7)}}
     else{const h=!!t.doneBy[mid];e=1;d=h?1:0}
     exp+=e;done+=d;
     if(!byCat[t.cat])byCat[t.cat]={e:0,d:0,n:0};byCat[t.cat].e+=e;byCat[t.cat].d+=d;byCat[t.cat].n++;
@@ -925,7 +925,7 @@ function pAnaliz(){
     </div>
     <section class="card"><div class="card-head"><h2>Desteğe ihtiyaç duyulan görevler</h2><span class="muted">en düşük tamamlama</span></div>
     ${weak.length?`<div class="list">${weak.map(x=>`<div class="row"><div class="tt"><div class="t1">${esc(x.t.title)}</div><div class="t2">${freqTag(x.t)}<span class="num">${x.d}/${x.e} kez yapıldı</span></div></div><span class="pill p-${rateCls(x.r)} num">${pct(x.r)}</span></div>`).join("")}</div>`:`<p class="muted" style="margin:0">Bu dönem için değerlendirilecek görev yok. Görev atandıktan sonra burada görünür.</p>`}</section>
-    <p class="muted">Oranlar, görevin atandığı günden itibaren hesaplanır. Bugünün ve bu haftanın görevleri yapılınca sayılır, yapılmadıysa gün veya hafta bitince hesaba katılır.</p>`;
+    <p class="muted">Oranlar, görevin atandığı günden itibaren hesaplanır. Bugünün ve bu haftanın henüz yapılmamış görevleri de beklenen sayılır; gün içinde işaretlendikçe oran yükselir.</p>`;
   }
   const all=ms.map(m=>({m,st:memberStats(m.id,S.period)}));
   let E=0,D=0;all.forEach(x=>{E+=x.st.exp;D+=x.st.done});
