@@ -1,4 +1,4 @@
-<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#3056F5"><meta name="description" content="Anne, baba, çocuklar ve öğrenciler için ortak ev görevleri panosu."><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="ikon/favicon-32.png" type="image/png"><link rel="apple-touch-icon" href="ikon/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Görev Panosu"><meta name="apple-mobile-web-app-status-bar-style" content="default"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.5 system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style><script>window.__AGP_WEB=1;</script><script src="fb/firebase-app-compat.js"></script><script src="fb/firebase-firestore-compat.js"></script><script src="fb-config.js"></script><script>if("serviceWorker" in navigator&&location.protocol==="https:"){addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script></head><body><title>Aile Görev Panosu</title>
+<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#3056F5"><meta name="description" content="Anne, baba, çocuklar ve öğrenciler için ortak ev görevleri panosu."><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="ikon/favicon-32.png" type="image/png"><link rel="apple-touch-icon" href="ikon/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Görev Panosu"><meta name="apple-mobile-web-app-status-bar-style" content="default"><style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.5 system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style><script>window.__AGP_WEB=1;</script><script src="fb/fb.js"></script><script src="fb-config.js"></script><script>if("serviceWorker" in navigator&&location.protocol==="https:"){addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script></head><body><title>Aile Görev Panosu</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
@@ -515,22 +515,30 @@ function saveLocal(){
 }
 /* Firebase (yalnızca Android uygulamasında): artifact db ile aynı arayüzü sunan küçük bağdaştırıcı */
 function fbAdapter(){
-  const fs=firebase.firestore();
-  try{fs.enablePersistence().catch(()=>{})}catch(e){}
-  const DEL=firebase.firestore.FieldValue.delete();
+  const M=window.FBM;const app=M.initializeApp(window.__AGP_FB);
+  let fs;try{fs=M.initializeFirestore(app,{localCache:M.persistentLocalCache()})}catch(e){fs=M.initializeFirestore(app,{localCache:M.memoryLocalCache()})}
+  const auth=M.initializeAuth(app,{persistence:[M.indexedDBLocalPersistence,M.browserLocalPersistence,M.inMemoryPersistence]});
+  /* Anonim oturum: sunucu kuralları her istekte oturum ister. Oturum cihazda saklanır, internetsiz açılışta da hazırdır. */
+  S.authReady=new Promise(res=>{let tried=false;M.onAuthStateChanged(auth,u=>{
+    if(u){S.uid=u.uid;S.authErr=null;res(u);return}
+    if(tried)return;tried=true;M.signInAnonymously(auth).catch(e=>{S.authErr=e;res(null);retry()})})});
+  /* İlk açılış internetsiz olduysa: bağlantı gelince oturumu yeniden dener, aile verisini yeniden bağlar */
+  let rt=null;const again=()=>{if(S.uid)return;M.signInAnonymously(auth).then(c=>{S.uid=c.user.uid;S.authErr=null;S.note=null;clearInterval(rt);rt=null;if(S.mode==="cloud"&&S.code)startCloud(S.code);else render()}).catch(e=>{S.authErr=e})};
+  function retry(){if(rt)return;rt=setInterval(again,30000);addEventListener("online",again)}
+  const DEL=M.deleteField();
   const mapPath=p=>{const m=String(p).match(/^aile-([A-Z0-9]+)\/durum(?:\/(gun)(?:\/([0-9-]+))?)?$/);if(!m)throw new TypeError("Geçersiz yol: "+p);return "aileler/"+m[1]+(m[2]?"/gun"+(m[3]?"/"+m[3]:""):"")};
   const nullsToDel=o=>{const r={};for(const k in o){const v=o[k];r[k]=v===null?DEL:(isObj(v)?nullsToDel(v):v)}return r};
   const err=e=>({code:e&&e.code==="permission-denied"?"invalid_argument":e&&e.code==="resource-exhausted"?"quota_exceeded":"unavailable",message:String(e&&e.message||e)});
-  const snapW=x=>({id:x.id,exists:x.exists,data:()=>x.data(),metadata:{fromCache:x.metadata.fromCache,hasPendingWrites:x.metadata.hasPendingWrites}});
-  const docW=p=>{const r=fs.doc(mapPath(p));return {path:p,
-    get:async()=>snapW(await r.get()),
-    set:async d=>{try{await r.set(d)}catch(e){throw err(e)}},
-    update:async d=>{try{await r.set(nullsToDel(d),{merge:true})}catch(e){throw err(e)}},
-    delete:async()=>{try{await r.delete()}catch(e){throw err(e)}},
-    onSnapshot:(n,er)=>r.onSnapshot({includeMetadataChanges:true},x=>n(snapW(x)),e=>er&&er(err(e)))}};
-  const colW=(p,q)=>{q=q||fs.collection(mapPath(p));return {where:(f,op,v)=>colW(p,q.where(f,op,v)),
-    get:async()=>{try{const x=await q.get({source:"server"});return {docs:x.docs.map(snapW),size:x.size,empty:x.empty}}catch(e){throw err(e)}},
-    onSnapshot:(n,er)=>q.onSnapshot({includeMetadataChanges:true},x=>n({docs:x.docs.map(snapW),size:x.size,empty:x.empty,metadata:{fromCache:x.metadata.fromCache}}),e=>er&&er(err(e)))}};
+  const snapW=x=>({id:x.id,exists:typeof x.exists==="function"?x.exists():!!x.exists,data:()=>x.data(),metadata:{fromCache:x.metadata.fromCache,hasPendingWrites:x.metadata.hasPendingWrites}});
+  const docW=p=>{const r=M.doc(fs,mapPath(p));return {path:p,
+    get:async()=>snapW(await M.getDoc(r)),
+    set:async d=>{try{await M.setDoc(r,d)}catch(e){throw err(e)}},
+    update:async d=>{try{await M.setDoc(r,nullsToDel(d),{merge:true})}catch(e){throw err(e)}},
+    delete:async()=>{try{await M.deleteDoc(r)}catch(e){throw err(e)}},
+    onSnapshot:(n,er)=>M.onSnapshot(r,{includeMetadataChanges:true},x=>n(snapW(x)),e=>er&&er(err(e)))}};
+  const colW=(p,q)=>{q=q||M.collection(fs,mapPath(p));return {where:(f,op,v)=>colW(p,M.query(q,M.where(f,op,v))),
+    get:async()=>{try{const x=await M.getDocsFromServer(q);return {docs:x.docs.map(snapW),size:x.size,empty:x.empty}}catch(e){throw err(e)}},
+    onSnapshot:(n,er)=>M.onSnapshot(q,{includeMetadataChanges:true},x=>n({docs:x.docs.map(snapW),size:x.size,empty:x.empty,metadata:{fromCache:x.metadata.fromCache}}),e=>er&&er(err(e)))}};
   return {doc:docW,collection:p=>colW(p)};
 }
 const queues={};
@@ -575,6 +583,12 @@ function fail(e){
   render();
 }
 
+function deviceLabel(){const m=me()&&memberById(me());return (m?m.name+" · ":"")+(window.__AGP_APK?"Android uygulaması":/iPhone|iPad/.test(navigator.userAgent)?"iPhone / iPad":"Tarayıcı")}
+function noteDevice(){if(!S.fb||!S.uid||S.readOnly)return;const k="agp-cihaz-"+S.code;const today=dkey(new Date());if(ls.get(k)===today&&S.state.cihazlar&&S.state.cihazlar[S.uid])return;ls.set(k,today);
+  const c=(S.state.cihazlar||{})[S.uid];const lbl=deviceLabel();if(c&&c.ad===lbl&&c.son&&dkey(new Date(c.son))===today)return;
+  patchState({cihazlar:{[S.uid]:{ad:lbl,son:Date.now()}}})}
+function devicesCard(){if(!S.fb||S.mode!=="cloud")return "";const list=Object.entries(S.state.cihazlar||{}).filter(([,v])=>v&&v.son).sort((a,b)=>b[1].son-a[1].son);if(!list.length)return "";
+  return `<section class="card"><div class="card-head"><h2>Bağlı cihazlar</h2><span class="muted num">${list.length} cihaz</span></div><p class="muted" style="margin-top:0">Bu aile koduyla panoyu açan cihazlar. Tanımadığınız bir cihaz görürseniz aile kodunu kimseyle paylaşmayın ve aileyi yeni bir kodla yeniden kurmayı düşünün.</p><div class="list">${list.slice(0,40).map(([id,v])=>`<div class="row"><div class="tt"><div class="t1">${esc(v.ad||"Cihaz")}${id===S.uid?' <span class="tag new">Bu cihaz</span>':""}</div><div class="t2">Son görülme: ${new Date(v.son).toLocaleDateString(TR,{day:"numeric",month:"long"})}</div></div></div>`).join("")}</div></section>`}
 function stopCloud(){unsubs.forEach(u=>{try{u()}catch(e){}});unsubs=[]}
 function startCloud(code){
   stopCloud();S.code=code;S.ready=false;S.exists=true;S.logs={};S.state={name:"",members:{},tasks:{}};
@@ -582,7 +596,7 @@ function startCloud(code){
   let timer=setTimeout(()=>{if(!S.ready){S.note="Aile verilerine şu an ulaşılamıyor. İnternet bağlantınızı kontrol edin; bağlantı gelince sayfa kendiliğinden güncellenir.";render()}},10000);
   unsubs.push(db.doc(base()+"/durum").onSnapshot(snap=>{
     if(!snap.metadata.fromCache){clearTimeout(timer);S.note=null}
-    if(snap.exists){S.state=clean(JSON.parse(JSON.stringify(snap.data())));S.exists=true;S.ready=true;ls.set("agp-kod",code)}
+    if(snap.exists){S.state=clean(JSON.parse(JSON.stringify(snap.data())));S.exists=true;S.ready=true;ls.set("agp-kod",code);if(!snap.metadata.fromCache)noteDevice()}
     else if(!snap.metadata.fromCache){S.exists=false;S.ready=true}
     render();
   },err=>{clearTimeout(timer);S.ready=true;S.note="Aile verileri okunamadı. Sayfayı daha sonra yeniden açın.";render()}));
@@ -645,11 +659,23 @@ function nav(){
 }
 
 /* ---------- sayfalar ---------- */
+/* Android ana ekran widget'ı: özet, sayfa her çizildiğinde (en fazla 2 sn'de bir) uygulamaya iletilir */
+let widgetT=null,widgetLast="";
+function schedWidget(){if(!(window.AndroidBridge&&window.AndroidBridge.setWidget))return;clearTimeout(widgetT);widgetT=setTimeout(pushWidget,2000)}
+function pushWidget(){
+  let o;const k=dkey(new Date());
+  if(!S.ready||!S.exists||(S.mode==="local"&&!S.state.created))o={bos:true,tarih:k};
+  else{const ms=members().slice().sort((a,b)=>(a.order||0)-(b.order||0));const next=[];
+    const uy=ms.map(m=>{const d=todayFor(m.id,k),w=weekFor(m.id);return {ad:m.name,renk:m.color,yapilan:d.dn+w.dn,toplam:d.tot+w.tot}});
+    for(const t of allTasks()){if(t.f!=="g"||!activeOn(t,k))continue;for(const m of ms){if(next.length>=4)break;if(assignedOn(t,m.id,k)&&!isDone(t,m.id,k))next.push(m.name+": "+t.title)}}
+    o={aile:S.state.name||"Ailemiz",tarih:k,uyeler:uy.slice(0,4),fazla:Math.max(0,uy.length-4),sonraki:next.slice(0,3)}}
+  const j=JSON.stringify(o);if(j===widgetLast)return;widgetLast=j;try{window.AndroidBridge.setWidget(j)}catch(e){}
+}
 function render(){
-  nav();const v=$("#view");
+  schedWidget();nav();const v=$("#view");
   const fr=$("#focusRoot");const fh=S.focus&&S.ready!==false?focusView():"";if(fr.innerHTML!==fh){const sc=fr.firstElementChild?fr.firstElementChild.scrollTop:0;fr.innerHTML=fh;if(fr.firstElementChild)fr.firstElementChild.scrollTop=sc}document.body.style.overflow=fh?"hidden":"";
   if(!S.mode){v.innerHTML=`<div class="empty"><h3>Aile Görev Panosu yükleniyor</h3><p>Ailenizin görevleri birazdan burada.</p></div>`;return}
-  if(S.mode==="cloud"&&!S.code)return v.innerHTML=onboarding();
+  if(S.mode==="cloud"&&!S.code)return v.innerHTML=(S.note?`<div class="note warnnote">${esc(S.note)}</div>`:"")+onboarding();
   if(S.mode==="cloud"&&!S.ready)return v.innerHTML=`<div class="empty"><h3>Aile bilgileri getiriliyor</h3><p>Aile kodu: <b>${esc(fmtCode(S.code))}</b></p>${S.note?`<p class="note">${esc(S.note)}</p>`:""}<button class="btn" data-act="leave">Başka bir aile koduyla gir</button></div>`;
   if(S.mode==="cloud"&&!S.exists)return v.innerHTML=`<div class="onb"><h1>Bu kodla bir aile bulunamadı</h1><p class="lead">“${esc(S.code)}” kodunu kontrol edin. Kod, aileyi kuran kişinin Aile sayfasında yazar.</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="leave">Geri dön</button></div></div>`;
   if(S.mode==="local"&&!S.state.created)return v.innerHTML=onboarding();
@@ -1010,6 +1036,15 @@ function privacyHtml(){
 function pGizlilik(){return head("Aydınlatma metni","Kişisel veriler")+`<section class="card">${privacyHtml()}</section>`}
 
 /* ---------- Ebeveyn PIN'i ---------- */
+/* PIN özeti: v2 = PBKDF2-SHA256, 210.000 tur (yavaş çözülsün diye). v1 = eski tek tur SHA-256, ilk doğru girişte v2'ye yükseltilir. */
+const PIN_ITER=210000;
+async function hashPinV2(pin,salt){
+  try{if(crypto&&crypto.subtle){const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(String(pin)),"PBKDF2",false,["deriveBits"]);
+    const b=await crypto.subtle.deriveBits({name:"PBKDF2",hash:"SHA-256",salt:new TextEncoder().encode("agp|"+salt),iterations:PIN_ITER},k,256);
+    return "p2"+[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}}catch(e){}
+  return null}
+async function makePin(pin){const salt=[...crypto.getRandomValues(new Uint8Array(12))].map(x=>x.toString(16).padStart(2,"0")).join("");const h=await hashPinV2(pin,salt);return h?{h,s:salt,v:2}:{h:await hashPin(pin,salt),s:salt}}
+async function checkPin(pin){const P=S.state.pin;if(!P)return false;if(P.v===2)return (await hashPinV2(pin,P.s))===P.h;return (await hashPin(pin,P.s))===P.h}
 async function hashPin(pin,salt){
   const txt="agp|"+salt+"|"+pin;
   try{if(crypto&&crypto.subtle){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(txt));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}}catch(e){}
@@ -1034,14 +1069,16 @@ async function pinSubmit(){
   const mode=sheet&&sheet.pinMode;const msg=t=>{const m=$("#pinMsg");if(m)m.textContent=t};
   if(mode==="set"){const a=($("#pin1").value||"").trim(),b=($("#pin2").value||"").trim();
     if(!/^[0-9]{4,6}$/.test(a))return msg("PIN 4 ile 6 rakamdan oluşmalı.");if(a!==b)return msg("İki PIN aynı değil.");
-    const salt=Math.random().toString(36).slice(2,10);const h=await hashPin(a,salt);closeSheet();await patchState({pin:{h,s:salt}});S.unlockUntil=Date.now()+10*60e3;toast("Ebeveyn PIN'i kaydedildi");return}
+    const P=await makePin(a);closeSheet();await patchState({pin:P});S.unlockUntil=Date.now()+10*60e3;toast("Ebeveyn PIN'i kaydedildi");return}
   if(mode==="reset"){const v=($("#pinReset").value||"").trim();
     const ok=S.mode==="cloud"?v.toUpperCase().replace(/[^A-Z0-9]/g,"")===S.code:v.toLocaleLowerCase(TR)===(S.state.name||"").trim().toLocaleLowerCase(TR);
     if(!ok)return msg(S.mode==="cloud"?"Aile kodu eşleşmedi.":"Aile adı eşleşmedi.");closeSheet();await patchState({pin:null});S.unlockUntil=0;toast("PIN kaldırıldı. Aile sayfasından yeni PIN belirleyebilirsiniz.");return}
   if(Date.now()<pinWait)return msg("Çok fazla deneme. "+Math.ceil((pinWait-Date.now())/1000)+" saniye bekleyin.");
-  const v=($("#pin1").value||"").trim();const h=await hashPin(v,S.state.pin.s);
-  if(h!==S.state.pin.h){pinFails++;if(pinFails>=5){pinWait=Date.now()+30000;pinFails=0}$("#pin1").value="";$("#pin1").focus();return msg("PIN yanlış.")}
+  const v=($("#pin1").value||"").trim();const btn=document.querySelector('[data-act="pinSubmit"]');if(btn){btn.disabled=true;btn.textContent="Kontrol ediliyor…"}
+  const ok=await checkPin(v);if(btn){btn.disabled=false;btn.textContent="Aç"}
+  if(!ok){pinFails++;if(pinFails>=5){pinWait=Date.now()+30000;pinFails=0}$("#pin1").value="";$("#pin1").focus();return msg("PIN yanlış.")}
   pinFails=0;S.unlockUntil=Date.now()+10*60e3;closeSheet();toast("Ebeveyn modu 10 dakika açık");
+  if(S.state.pin.v!==2&&!S.readOnly){makePin(v).then(P=>{if(P.v===2)patchState({pin:P})})}
   const el=pendingEl;pendingEl=null;if(el&&el.isConnected)el.click();else render();
 }
 function pinCard(){
@@ -1073,6 +1110,7 @@ function pAile(){
   :`<section class="card"><div class="card-head"><h2>Bu cihazda saklanıyor</h2></div><p style="margin:0" class="muted">${window.__AGP_APK?"Uygulama verileri yalnızca bu cihazda tutar. Uygulamayı silerseniz liste kaybolur; düzenli yedek almanız iyi olur. Yedeği başka bir telefondaki uygulamaya yükleyerek listeyi taşıyabilirsiniz.":"Bu bağlantıda ortak kayıt izni olmadığı için veriler yalnızca bu tarayıcıda tutulur. Tarayıcı verilerini silerseniz liste kaybolur; düzenli yedek almanız iyi olur."}</p></section>`}
   ${ms.length?`<section class="card"><div class="card-head"><h2>Bu cihazı kim kullanıyor?</h2></div><p class="muted" style="margin-top:0">Seçerseniz, bu cihazdan işaretlenen görevlerde kimin işaretlediği görünür. Ortak tablet için “Ortak cihaz” bırakın.</p><select class="input" id="meSel"><option value="">Ortak cihaz</option>${ms.map(m=>`<option value="${m.id}" ${me()===m.id?"selected":""}>${esc(m.name)}</option>`).join("")}</select></section>`:""}
   ${pinCard()}
+  ${devicesCard()}
   ${kvkkCard()}
   ${remindersCard()}
   ${!window.__AGP_WEB&&!window.__AGP_APK?`<section class="card"><div class="card-head"><h2>Telefonlar için</h2></div>${siteHint()}</section>`:""}
@@ -1184,7 +1222,7 @@ document.addEventListener("click",async ev=>{
   case "create":{
     if(!$("#kvkkOk").checked){toast("Devam etmek için veli onayını işaretleyin");$("#kvkkOk").closest("label").classList.add("shake");setTimeout(()=>{const l=$("#kvkkOk");l&&l.closest("label").classList.remove("shake")},600);return}
     const pinV=($("#fPin").value||"").trim();if(pinV&&!/^[0-9]{4,6}$/.test(pinV)){toast("PIN 4 ile 6 rakamdan oluşmalı");$("#fPin").focus();return}
-    let pinObj=null;if(pinV){const salt=Math.random().toString(36).slice(2,10);pinObj={h:await hashPin(pinV,salt),s:salt}}
+    let pinObj=null;if(pinV){pinObj=await makePin(pinV)}
     const name=$("#fName").value.trim()||"Ailemiz";const mem={};
     onbDraft.list.forEach((x,i)=>{mem[uid()]={name:x.n,role:x.r,color:MCOLORS[i%MCOLORS.length],order:i}});
     const tasks={};
@@ -1311,8 +1349,11 @@ window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(VIEW
 /* ---------- başlangıç ---------- */
 (async function boot(){
   const h=location.hash.slice(1);S.view=VIEWS.includes(h)?h:(ls.get("agp-sekme")||"bugun");
-  if(window.__AGP_FB&&window.firebase){try{if(!firebase.apps.length)firebase.initializeApp(window.__AGP_FB);db=fbAdapter();S.fb=true}catch(e){db=null;S.fb=false}}
-  if(S.fb){const code=ls.get("agp-kod");
+  if(window.__AGP_FB&&window.FBM){try{db=fbAdapter();S.fb=true}catch(e){db=null;S.fb=false}}
+  if(S.fb){
+    await Promise.race([S.authReady,new Promise(r=>setTimeout(r,12000))]);
+    if(!S.uid)S.note="Sunucuya bağlanılamadı. İlk açılışta internet bağlantısı gerekiyor; bağlantı gelince uygulama kendiliğinden bağlanır.";
+    const code=ls.get("agp-kod");
     if(code){S.mode="cloud";startCloud(code)}
     else if(loadLocal()&&S.state.created){S.mode="local";S.ready=true;render()}
     else{S.mode="cloud";render()}

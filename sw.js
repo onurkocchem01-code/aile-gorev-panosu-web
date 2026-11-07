@@ -1,6 +1,6 @@
 // Aile Görev Panosu: internetsiz açılış için basit önbellek.
-const SURUM = "agp-20261102234520";
-const DOSYALAR = ["./", "index.html", "fb-config.js", "fb/firebase-app-compat.js", "fb/firebase-firestore-compat.js",
+const SURUM = "agp-20261107165440";
+const DOSYALAR = ["./", "index.html", "fb-config.js", "fb/fb.js",
   "manifest.webmanifest", "ikon/ikon-192.png", "ikon/ikon-512.png", "ikon/apple-touch-icon.png", "ikon/favicon-32.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(SURUM).then(c => c.addAll(DOSYALAR)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
