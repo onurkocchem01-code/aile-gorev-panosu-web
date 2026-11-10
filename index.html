@@ -288,6 +288,9 @@ textarea.input{min-height:120px;font-family:ui-monospace,Menlo,monospace;font-si
 .btn.danger.solid{background:var(--low);color:#fff;border-color:var(--low)}
 .note.warnnote{background:var(--warn-soft);border-color:transparent}
 .days{display:flex;gap:6px;flex-wrap:wrap}
+.tkrow{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.tkrow select{width:auto;min-width:0;flex:1 1 140px}
+.tknext{margin:-4px 0 0;font-size:12.5px}
+.icsinfo{background:var(--surface-2);border-radius:12px;padding:10px 12px;font-size:13px;margin:0}
 .days button{width:46px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:700;font-size:13px;color:var(--ink-2)}
 .days button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .tag.due-low{background:var(--low-soft);color:var(--low);border-color:transparent}
@@ -470,8 +473,8 @@ function memberById(id){const v=(S.state.members||{})[id];return v&&!v.del?{id,.
 
 function allTasks(){
   const st=S.state.tasks||{};const out=[];
-  for(const c of CATS)c.items.forEach(([title,f,r,tid])=>{const id=tid;const s=st[id]||{};out.push(build(id,{title,cat:c.id,f:s.f||f,r:r||"a",sl:s.sl||DEFSLOT[id]||"any",dw:Array.isArray(s.dw)?s.dw:[],due:s.due||"",custom:false},s))});
-  for(const id in st){const s=st[id];if(s&&s.custom&&!s.del)out.push(build(id,{title:s.title,cat:CAT[s.cat]?s.cat:"dig",f:s.f||"g",r:"a",sl:s.sl||"any",dw:Array.isArray(s.dw)?s.dw:[],due:s.due||"",custom:true},s))}
+  for(const c of CATS)c.items.forEach(([title,f,r,tid])=>{const id=tid;const s=st[id]||{};out.push(build(id,{title,cat:c.id,f:s.f||f,r:r||"a",sl:s.sl||DEFSLOT[id]||"any",dw:Array.isArray(s.dw)?s.dw:[],tk:tkOk(s.tk)?s.tk:null,due:s.due||"",custom:false},s))});
+  for(const id in st){const s=st[id];if(s&&s.custom&&!s.del)out.push(build(id,{title:s.title,cat:CAT[s.cat]?s.cat:"dig",f:s.f||"g",r:"a",sl:s.sl||"any",dw:Array.isArray(s.dw)?s.dw:[],tk:tkOk(s.tk)?s.tk:null,due:s.due||"",custom:true},s))}
   return out;
   function build(id,base,s){const as={};for(const m in (s.as||{})){if(s.as[m]&&memberById(m))as[m]=s.as[m]}const doneBy={};for(const m in (s.doneBy||{}))if(s.doneBy[m])doneBy[m]=s.doneBy[m];return {id,...base,as,doneBy,dbw:s.dbw||{},rot:!!s.rot&&base.f!=="t"}}
 }
@@ -481,7 +484,34 @@ function weekDays(w){return [0,1,2,3,4,5,6].map(i=>dkey(addDays(w,i)))}
 const WD=["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"];
 function curDay(){return dkey(addDays(new Date(),S.dayOff||0))}
 function kDate(k){return new Date(k+"T12:00:00")}
-function activeOn(t,k){if(t.f!=="g"||!t.dw||!t.dw.length)return true;return t.dw.includes((kDate(k).getDay()+6)%7)}
+/* ---------- esnek tekrar: RFC 5545 RRULE ile birebir eşlenen alt küme ----------
+   tk yoksa: her gün ya da seçili günler (FREQ=DAILY / WEEKLY;BYDAY)
+   {m:"h",n,b}: n haftada bir, seçili günlerde; b = başlangıç haftasının pazartesisi (WEEKLY;INTERVAL=n)
+   {m:"a",g}: ayın g. günü, -1 = son gün (MONTHLY;BYMONTHDAY)
+   {m:"a",s,w}: ayın s. (1-4, -1 = son) w günü (MONTHLY;BYDAY=1SA) */
+const SIRA=[[1,"İlk"],[2,"İkinci"],[3,"Üçüncü"],[4,"Dördüncü"],[-1,"Son"]];
+const WDL=["Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi","Pazar"];
+const WDG=["pazartesisi","salısı","çarşambası","perşembesi","cuması","cumartesisi","pazarı"];
+const wdIdx=d=>(d.getDay()+6)%7;
+function tkOk(tk){if(!isObj(tk))return false;
+  if(tk.m==="h")return Number.isInteger(tk.n)&&tk.n>=2&&tk.n<=8&&/^\d{4}-\d{2}-\d{2}$/.test(tk.b||"");
+  if(tk.m==="a")return tk.g!=null?(Number.isInteger(tk.g)&&((tk.g>=1&&tk.g<=28)||tk.g===-1)):(SIRA.some(x=>x[0]===tk.s)&&Number.isInteger(tk.w)&&tk.w>=0&&tk.w<=6);
+  return false}
+function lastDay(d){return new Date(d.getFullYear(),d.getMonth()+1,0).getDate()}
+function monthMatch(tk,d){
+  if(tk.g!=null)return tk.g===-1?d.getDate()===lastDay(d):d.getDate()===tk.g;
+  if(wdIdx(d)!==tk.w)return false;
+  return tk.s>0?Math.ceil(d.getDate()/7)===tk.s:d.getDate()+7>lastDay(d)}
+function weeksFrom(b,d){return Math.round((monday(d)-monday(kDate(b)))/6048e5)}
+function activeOn(t,k){if(t.f!=="g")return true;const d=kDate(k),tk=t.tk;
+  if(tk&&tk.m==="a")return monthMatch(tk,d);
+  if(tk&&tk.m==="h"){const w=weeksFrom(tk.b,d);if(w<0||w%tk.n)return false}
+  if(!t.dw||!t.dw.length)return true;return t.dw.includes(wdIdx(d))}
+function nextOn(t,from,n,lim){const out=[];for(let i=0;i<(lim||400)&&out.length<n;i++){const k=dkey(addDays(from,i));if(activeOn(t,k))out.push(k)}return out}
+function tkLabel(t){const tk=t.tk;const days=t.dw&&t.dw.length&&t.dw.length<7?t.dw.slice().sort().map(i=>WD[i]).join(", "):"";
+  if(tk&&tk.m==="a")return tk.g!=null?(tk.g===-1?"Her ayın son günü":"Her ayın "+tk.g+". günü"):"Her ayın "+SIRA.find(x=>x[0]===tk.s)[1].toLocaleLowerCase(TR)+" "+WDG[tk.w];
+  if(tk&&tk.m==="h")return tk.n+" haftada bir"+(days?" · "+days:"");
+  return days}
 function isDone(t,m,k){k=k||curDay();
   if(t.f==="g")return logHas(k,t.id,m);
   if(t.f==="h")return weekDays(monday(kDate(k))).some(x=>logHas(x,t.id,m));
@@ -491,6 +521,8 @@ const EPOCH=new Date(2024,0,1,12);/* bir pazartesi */
 function rotMembers(t){return Object.keys(t.as).filter(id=>memberById(id)).sort((a,b)=>(memberById(a).order||0)-(memberById(b).order||0))}
 function rotIndex(t,k){const d=kDate(k);const day=Math.round((d-EPOCH)/864e5);const wk=Math.floor(day/7);
   if(t.f==="h")return wk;
+  if(t.tk&&t.tk.m==="a")return d.getFullYear()*12+d.getMonth();
+  if(t.tk&&t.tk.m==="h"){const ds=t.dw&&t.dw.length&&t.dw.length<7?t.dw.slice().sort():[0,1,2,3,4,5,6];return Math.floor(weeksFrom(t.tk.b,d)/t.tk.n)*ds.length+Math.max(0,ds.indexOf(wdIdx(d)))}
   if(t.dw&&t.dw.length&&t.dw.length<7){const ds=t.dw.slice().sort();return wk*ds.length+Math.max(0,ds.indexOf((d.getDay()+6)%7))}
   return day}
 function onDuty(t,k){const ms=rotMembers(t);if(!ms.length)return null;const n=ms.length;return ms[((rotIndex(t,k)%n)+n)%n]}
@@ -504,7 +536,7 @@ function markedBy(t,m,k){k=k||curDay();let by=null;
 function dueInfo(t){if(t.f!=="t"||!t.due)return null;const d=Math.round((kDate(t.due)-kDate(dkey(new Date())))/864e5);
   const lbl=d<0?(-d)+" gün gecikti":d===0?"Son gün bugün":d===1?"Son gün yarın":kDate(t.due).toLocaleDateString(TR,{day:"numeric",month:"short"})+" son gün";
   return {d,lbl,cls:d<0?"low":d<=1?"warn":"none"}}
-function freqLabel(t){if(t.f==="g"&&t.dw&&t.dw.length&&t.dw.length<7)return t.dw.slice().sort().map(i=>WD[i]).join(", ");return FREQ[t.f]}
+function freqLabel(t){if(t.f==="g"){const l=tkLabel(t);if(l)return l}return FREQ[t.f]}
 
 /* ---------- veri katmanı (bulut: ortak / yerel: bu cihaz) ---------- */
 const LOCAL_KEY="agp-yerel-v1";
@@ -605,6 +637,56 @@ function startCloud(code){
     const logs={};qs.docs.forEach(d=>{const v=d.data();logs[d.id]={date:v.date,e:clean(JSON.parse(JSON.stringify(v.e||{})))}});S.logs=logs;render();
   },()=>{}));
 }
+
+/* ---------- takvime aktar (.ics, RFC 5545) ---------- */
+const BYD=["MO","TU","WE","TH","FR","SA","SU"];
+const SLOT_T={sabah:"073000",ogle:"160000",aksam:"200000"};
+function icsEsc(v){return String(v).replace(/\\/g,"\\\\").replace(/;/g,"\\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n")}
+function icsFold(line){const enc=new TextEncoder();if(enc.encode(line).length<=75)return line;const parts=[];let cur="",n=0;
+  for(const ch of line){const b=enc.encode(ch).length;if(n+b>(parts.length?74:75)){parts.push(cur);cur="";n=0}cur+=ch;n+=b}parts.push(cur);return parts.join("\r\n ")}
+const icsDate=k=>k.replace(/-/g,"");
+function icsStamp(){const d=new Date();return d.getUTCFullYear()+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+"T"+pad(d.getUTCHours())+pad(d.getUTCMinutes())+pad(d.getUTCSeconds())+"Z"}
+function rruleOf(t){if(t.f==="h")return "FREQ=WEEKLY;WKST=MO";const tk=t.tk;
+  const days=t.dw&&t.dw.length&&t.dw.length<7?t.dw.slice().sort().map(i=>BYD[i]).join(","):"";
+  if(tk&&tk.m==="a")return tk.g!=null?"FREQ=MONTHLY;BYMONTHDAY="+tk.g:"FREQ=MONTHLY;BYDAY="+tk.s+BYD[tk.w];
+  if(tk&&tk.m==="h")return "FREQ=WEEKLY;INTERVAL="+tk.n+";WKST=MO;BYDAY="+(days||BYD.join(","));
+  return days?"FREQ=WEEKLY;WKST=MO;BYDAY="+days:"FREQ=DAILY"}
+/* mid: tek kişi ya da "" (tüm aile). Dönüş: {txt, n (etkinlik), skip (son günü olmayan tek seferlik görevler)} */
+function buildIcs(mid,alarm){
+  const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Aile Gorev Panosu//TR","CALSCALE:GREGORIAN","METHOD:PUBLISH"];
+  const m=mid?memberById(mid):null;const cal=(S.state.name||"Ailemiz")+(m?" · "+m.name:"");L.push("X-WR-CALNAME:"+icsEsc(cal));
+  const stamp=icsStamp(),today=new Date(),tk0=dkey(today),code=S.code||"yerel";let n=0,skip=0;
+  const ev=(uidPart,t,start,rule,desc)=>{const timed=t.f==="g"&&SLOT_T[t.sl];
+    L.push("BEGIN:VEVENT","UID:agp-"+code+"-"+uidPart+"@aile-gorev-panosu","DTSTAMP:"+stamp,"SUMMARY:"+icsEsc(t.title+(m||!desc?"":" · "+desc)));
+    if(timed){L.push("DTSTART:"+icsDate(start)+"T"+SLOT_T[t.sl],"DURATION:PT30M")}
+    else{L.push("DTSTART;VALUE=DATE:"+icsDate(start),"DTEND;VALUE=DATE:"+icsDate(dkey(addDays(kDate(start),t.f==="h"?7:1))))}
+    if(rule)L.push("RRULE:"+rule);
+    L.push("DESCRIPTION:"+icsEsc(CAT[t.cat].name+" · "+freqLabel(t)+(desc?" · "+desc:"")+"\nAile Görev Panosu'ndan aktarıldı."),"CATEGORIES:"+icsEsc(CAT[t.cat].name),"TRANSP:TRANSPARENT");
+    if(alarm&&t.f!=="h")L.push("BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+icsEsc(t.title),"TRIGGER:"+(timed?"PT0M":"PT9H"),"END:VALARM");
+    L.push("END:VEVENT");n++};
+  for(const t of allTasks()){
+    const who=Object.keys(t.as).filter(x=>memberById(x));if(!who.length||(mid&&!t.as[mid]))continue;
+    const names=who.map(x=>memberById(x).name).join(", ");const rot=t.rot&&rotMembers(t).length>1;
+    if(t.f==="t"){if((mid?t.doneBy[mid]:who.every(x=>t.doneBy[x])))continue;if(!t.due){skip++;continue}ev(t.id+"-"+(mid||"aile"),t,t.due,"",mid?"":names);continue}
+    if(rot&&mid){/* nöbetli görev: yalnızca bu kişinin sırası olan günler, 8 hafta */
+      if(t.f==="h"){for(let i=0;i<8;i++){const w=dkey(monday(addDays(today,i*7)));if(onDuty(t,w)===mid)ev(t.id+"-"+mid+"-"+w,t,w,"","")}}
+      else{for(const k of nextOn(t,today,400,56))if(onDuty(t,k)===mid)ev(t.id+"-"+mid+"-"+k,t,k,"","")}
+      continue}
+    const start=t.f==="h"?dkey(monday(today)):nextOn(t,today,1)[0];if(!start)continue;
+    ev(t.id+"-"+(mid||"aile"),t,start,rruleOf(t),mid?"":(rot?"Sırayla: ":"")+names);
+  }
+  L.push("END:VCALENDAR");return {txt:L.map(icsFold).join("\r\n")+"\r\n",n,skip}}
+function icsSheet(keep){const ms=members();const who=keep?($("#icsWho")||{}).value||"":(S.view==="kisiler"&&memberById(S.member)?S.member:"");const al=keep?!!($("#icsAlarm")||{}).checked:true;
+  const r=buildIcs(who,al);
+  openSheet(`<div><div class="eyebrow">Takvim</div><h3>Görevleri takvime aktar</h3></div>
+  <div class="field"><label for="icsWho">Kimin görevleri?</label><select class="input" id="icsWho"><option value="">Tüm aile</option>${ms.map(m=>`<option value="${m.id}" ${who===m.id?"selected":""}>${esc(m.name)}</option>`).join("")}</select></div>
+  <label class="tick"><input type="checkbox" id="icsAlarm" ${al?"checked":""}> <span><b>Hatırlatma ekle.</b> Sabah, öğleden sonra ve akşam görevleri 07.30, 16.00 ve 20.00'de; “gün içinde” görevleri 09.00'da hatırlatılır.</span></label>
+  <p class="icsinfo">${r.n?`<b>${r.n} etkinlik</b> hazır.`:"Aktarılacak atanmış görev yok."}${r.skip?` Son günü olmayan ${r.skip} tek seferlik görev eklenmedi.`:""} Takvim, aktardığınız andaki planın bir kopyasıdır; panoda sonradan yaptığınız değişiklikler takvime kendiliğinden geçmez. Planı değiştirirseniz eski etkinlikleri silip yeniden aktarın.</p>
+  <div class="actions"><button class="btn" data-act="closeSheet">Vazgeç</button><button class="btn primary" data-act="icsSave" ${r.n?"":"disabled"}>${window.__AGP_APK?"Takvimde aç":"Takvim dosyasını indir"}</button></div>`)}
+async function saveTextFile(fn,txt,mime){
+  if(window.AndroidBridge){if(mime==="text/calendar"&&window.AndroidBridge.openFile){window.AndroidBridge.openFile(fn,txt,mime);return true}if(window.AndroidBridge.saveFile){window.AndroidBridge.saveFile(fn,txt);return true}}
+  try{const dl=window.claude&&await window.claude.use("downloads");if(dl){await dl.save({filename:fn,data:new Blob([txt],{type:mime})});return true}}catch(e){if(e&&e.code==="declined")return false}
+  try{const u=URL.createObjectURL(new Blob([txt],{type:mime}));const a=document.createElement("a");a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);return true}catch(e){return false}}
 
 /* ---------- istatistik ---------- */
 function rateCls(r){return r==null?"none":r>=80?"good":r>=50?"warn":"low"}
@@ -908,8 +990,8 @@ function weekPlan(m){
   const w=monday(new Date());const days=weekDays(w);const tk=dkey(new Date());
   const tasks=allTasks().filter(t=>t.as[m.id]&&t.f!=="t");
   const rotOn=t=>t.rot&&rotMembers(t).length>1;
-  const fixed=tasks.filter(t=>t.f==="g"&&!rotOn(t)&&(!t.dw||!t.dw.length));
-  const varying=tasks.filter(t=>t.f==="g"&&(rotOn(t)||(t.dw&&t.dw.length)));
+  const fixed=tasks.filter(t=>t.f==="g"&&!rotOn(t)&&!t.tk&&(!t.dw||!t.dw.length));
+  const varying=tasks.filter(t=>t.f==="g"&&(rotOn(t)||t.tk||(t.dw&&t.dw.length)));
   const weekly=tasks.filter(t=>t.f==="h"&&rotOn(t));
   if(!varying.length&&!weekly.length)return "";
   const wk=weekly.filter(t=>assignedOn(t,m.id,tk));
@@ -929,7 +1011,7 @@ function pKisiler(){
     if(f==="g"){const o=Object.fromEntries(SLOTS.map((x,i)=>[x[0],i]));l.sort((a,b)=>o[a.sl]-o[b.sl]||cmp(a.title,b.title))}
     return `<section class="card"><div class="card-head"><h2>${title}</h2><span class="muted num">${d}/${l.length} · ${sub}</span></div><div class="bar" style="margin-bottom:8px"><i style="width:${d/l.length*100}%"></i></div><div class="list">${l.map(t=>`<div class="row ${isDone(t,m.id)?"done":""}">${checkBtn(t,m.id)}<div class="tt"><div class="t1">${esc(t.title)}</div><div class="t2">${t.rot?`<span class="tag rot">Nöbet</span>`:""}${t.f==="g"&&t.sl!=="any"?`<span class="tag">${SLOTN[t.sl]}</span>`:""}${t.f==="t"&&!isDone(t,m.id)&&dueInfo(t)?`<span class="tag due-${dueInfo(t).cls}">${esc(dueInfo(t).lbl)}</span>`:""}${byTag(t,m.id)}<span><span class="catdot" style="background:${CAT[t.cat].color}"></span>${esc(CAT[t.cat].name)}</span>${t.f==="t"&&t.doneBy[m.id]?`<span>${new Date(t.doneBy[m.id]).toLocaleDateString(TR,{day:"numeric",month:"short"})} tarihinde yapıldı</span>`:""}</div></div></div>`).join("")}</div></section>`};
   const st=memberStats(m.id,7);
-  return head(m.name,ROLES[m.role]||"Aile üyesi",`<div class="toolbar"><button class="btn primary" data-act="openFocus" data-m="${m.id}">Benim listem · büyük ekran</button><button class="btn" data-act="openAnaliz" data-m="${m.id}">${ICON.chart}Analiz</button></div>`)+memberTabs(m.id,"pickMember")+`
+  return head(m.name,ROLES[m.role]||"Aile üyesi",`<div class="toolbar"><button class="btn primary" data-act="openFocus" data-m="${m.id}">Benim listem · büyük ekran</button><button class="btn" data-act="openAnaliz" data-m="${m.id}">${ICON.chart}Analiz</button><button class="btn" data-act="openIcs">Takvime aktar</button></div>`)+memberTabs(m.id,"pickMember")+`
   <div class="card hero">${av(m,"lg")}<div class="kpis">
    <div class="kpi"><div class="v num">${todayFor(m.id).dn}/${todayFor(m.id).tot}</div><div class="k">Bugün</div></div>
    <div class="kpi"><div class="v num">${weekFor(m.id).dn}/${weekFor(m.id).tot}</div><div class="k">Bu haftanın görevleri</div></div>
@@ -1116,6 +1198,9 @@ function pAile(){
   ${!window.__AGP_WEB&&!window.__AGP_APK?`<section class="card"><div class="card-head"><h2>Telefonlar için</h2></div>${siteHint()}</section>`:""}
   ${window.__AGP_WEB?`<section class="card"><div class="card-head"><h2>Telefona ekleyin</h2></div>${installHint()||'<p class="muted" style="margin:0">Pano bu cihazda uygulama olarak açık.</p>'}</section>`:""}
   <section class="card"><div class="card-head"><h2>Aile adı</h2></div><div class="addrow"><input class="input" id="famName" value="${esc(S.state.name||"")}" ${S.readOnly?"disabled":""}><button class="btn" data-act="saveName" ${S.readOnly?"disabled":""}>Kaydet</button></div></section>
+  <section class="card"><div class="card-head"><h2>Takvim</h2><span class="muted">.ics dosyası</span></div>
+   <p class="muted" style="margin-top:0">Atanmış görevleri Google Takvim, iPhone Takvim veya Outlook'a tekrar kurallarıyla birlikte aktarın. Tüm aileyi ya da tek kişiyi seçebilirsiniz.</p>
+   <div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="openIcs">Görevleri takvime aktar</button></div></section>
   <section class="card"><div class="card-head"><h2>Yedek</h2><span class="muted">dosya olarak</span></div>
    <p class="muted" style="margin-top:0">Yedek dosyasını telefonunuza veya Drive'a kaydedin. Başka bir cihaza taşımak için orada “Yedek dosyasını aç”a dokunun.</p>
    <div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="saveBk">Yedeği dosya olarak kaydet</button>${S.readOnly?"":`<label class="btn" for="bkFile">Yedek dosyasını aç</label><input type="file" id="bkFile" accept=".json,application/json,text/plain" hidden>`}</div>
@@ -1137,7 +1222,7 @@ function taskSheet(){
    ${d.isNew||d.custom?`<div class="field"><label for="tTitle">Görev adı</label><input class="input" id="tTitle" value="${esc(d.title)}" placeholder="Örn. Kütüphaneye kitap iade et"></div>
    <div class="field"><label for="tCat">Kategori</label><select class="input" id="tCat">${CATS.map(c=>`<option value="${c.id}" ${d.cat===c.id?"selected":""}>${esc(c.name)}</option>`).join("")}</select></div>`:""}
    <div class="field"><span class="flabel">Ne sıklıkla?</span><div class="seg" role="group">${Object.entries(FREQ).map(([k,l])=>`<button data-act="dFreq" data-v="${k}" aria-pressed="${d.f===k}">${l}</button>`).join("")}</div></div>
-   ${d.f==="g"?`<div class="field"><span class="flabel">Hangi günler? <span class="muted" style="font-weight:500">Hiçbiri seçili değilse her gün</span></span><div class="days" role="group">${WD.map((n,i)=>`<button data-act="dDay" data-v="${i}" aria-pressed="${(d.dw||[]).includes(i)}">${n}</button>`).join("")}</div></div>`:""}
+   ${d.f==="g"?tkFields(d):""}
    ${d.f==="t"?`<div class="field"><label for="tDue">Son gün <span class="muted" style="font-weight:500">isteğe bağlı</span></label><input class="input" type="date" id="tDue" value="${esc(d.due||"")}"></div>`:""}
    ${d.f==="g"?`<div class="field"><span class="flabel">Günün hangi saatinde?</span><div class="seg" role="group" style="flex-wrap:wrap">${SLOTS.map(([k,l])=>`<button data-act="dSlot" data-v="${k}" aria-pressed="${(d.sl||"any")===k}">${l}</button>`).join("")}</div></div>`:""}
    <div class="field"><span class="flabel">Kim yapacak? <span class="muted" style="font-weight:500">Birden fazla kişi seçebilirsiniz</span></span>
@@ -1146,10 +1231,21 @@ function taskSheet(){
    <div id="delZone"></div>
    <div class="actions">${!d.isNew?`<button class="btn" data-act="dupTask" title="Bu görevin bir kopyasını oluşturur">Çoğalt</button>`:""}${!d.isNew&&d.custom?`<button class="btn danger" data-act="askDel">Görevi sil</button>`:""}${!d.isNew&&Object.keys(d.as).length?`<button class="btn" data-act="clearAs">Atamayı kaldır</button>`:""}<button class="btn" data-act="closeSheet">Vazgeç</button><button class="btn primary" data-act="saveTask">Kaydet</button></div>`);
 }
-function syncDraftInputs(){const a=$("#tTitle"),b=$("#tCat"),c=$("#tDue"),r=$("#tRot");if(a)draft.title=a.value;if(b)draft.cat=b.value;if(c)draft.due=c.value;if(r)draft.rot=r.checked}
-function rotPreview(d){const t={f:d.f,dw:d.dw||[],as:d.as,rot:true};const out=[];const base=new Date();
-  for(let i=0,n=0;i<21&&n<(d.f==="h"?3:5);i++){const k=dkey(addDays(base,d.f==="h"?i*7:i));if(d.f==="g"&&!activeOn(t,k))continue;const m=memberById(onDuty(t,k));if(!m)continue;
-    const lbl=d.f==="h"?(i===0?"Bu hafta":i===1?"Gelecek hafta":"Sonraki hafta"):(i===0?"Bugün":i===1?"Yarın":DAYS[kDate(k).getDay()]);out.push(`<span><b>${lbl}</b> ${esc(m.name)}</span>`);n++}
+function syncDraftInputs(){const a=$("#tTitle"),b=$("#tCat"),c=$("#tDue"),r=$("#tRot");if(a)draft.title=a.value;if(b)draft.cat=b.value;if(c)draft.due=c.value;if(r)draft.rot=r.checked;
+  const tk=draft.tk;if(tk){const n=$("#tkN"),g=$("#tkG"),q=$("#tkS"),w=$("#tkW");if(n)tk.n=+n.value;if(g)tk.g=+g.value;if(q)tk.s=+q.value;if(w)tk.w=+w.value}}
+function tkFields(d){const tk=d.tk,mode=!tk?"w":tk.m==="h"?"n":"a";
+  const sel=(id,opts,v)=>`<select class="input sm-in" id="${id}" data-chg="tkSel">${opts.map(([k,l])=>`<option value="${k}" ${+v===+k?"selected":""}>${esc(l)}</option>`).join("")}</select>`;
+  const days=`<div class="days" role="group" aria-label="Günler">${WD.map((n,i)=>`<button data-act="dDay" data-v="${i}" aria-pressed="${(d.dw||[]).includes(i)}">${n}</button>`).join("")}</div>`;
+  const probe={f:"g",dw:d.dw||[],tk:tk&&tkOk(tk)?tk:null};const nx=nextOn(probe,new Date(),3).map(k=>kDate(k).toLocaleDateString(TR,{day:"numeric",month:"short",weekday:"short"}));
+  return `<div class="field"><span class="flabel">Ne zaman tekrarlansın?</span><div class="seg" role="group" style="flex-wrap:wrap">${[["w","Her hafta"],["n","Birkaç haftada bir"],["a","Her ay"]].map(([k,l])=>`<button data-act="dTk" data-v="${k}" aria-pressed="${mode===k}">${l}</button>`).join("")}</div></div>
+  ${mode==="w"?`<div class="field"><span class="flabel">Hangi günler? <span class="muted" style="font-weight:500">Hiçbiri seçili değilse her gün</span></span>${days}</div>`:""}
+  ${mode==="n"?`<div class="field"><span class="flabel">Kaç haftada bir, hangi günler?</span><div class="tkrow">${sel("tkN",[2,3,4,5,6,7,8].map(n=>[n,n+" haftada bir"]),tk.n)}</div>${days}<span class="muted" style="font-size:12px">Gün seçmezseniz o haftanın her günü. Sayım bu haftadan başlar.</span></div>`:""}
+  ${mode==="a"?`<div class="field"><span class="flabel">Ayın hangi günü?</span><div class="seg" role="group"><button data-act="dTkA" data-v="g" aria-pressed="${tk.g!=null}">Tarihe göre</button><button data-act="dTkA" data-v="s" aria-pressed="${tk.g==null}">Haftanın gününe göre</button></div>
+    <div class="tkrow">${tk.g!=null?sel("tkG",[...Array.from({length:28},(_,i)=>[i+1,"Ayın "+(i+1)+". günü"]),[-1,"Ayın son günü"]],tk.g):sel("tkS",SIRA.map(([k,l])=>[k,l]),tk.s)+sel("tkW",WDL.map((l,i)=>[i,l]),tk.w)}</div></div>`:""}
+  ${nx.length?`<p class="muted tknext">Sıradaki günler: ${nx.map(esc).join(" · ")}</p>`:""}`}
+function rotPreview(d){const t={f:d.f,dw:d.dw||[],tk:d.f==="g"&&d.tk&&tkOk(d.tk)?d.tk:null,as:d.as,rot:true};const out=[];const base=new Date();const lim=d.f==="h"?3:t.tk?(t.tk.m==="a"?400:70):21;
+  for(let i=0,n=0;i<lim&&n<(d.f==="h"?3:t.tk&&t.tk.m==="a"?3:5);i++){const k=dkey(addDays(base,d.f==="h"?i*7:i));if(d.f==="g"&&!activeOn(t,k))continue;const m=memberById(onDuty(t,k));if(!m)continue;
+    const lbl=d.f==="h"?(i===0?"Bu hafta":i===1?"Gelecek hafta":"Sonraki hafta"):(i===0?"Bugün":i===1?"Yarın":i<7?DAYS[kDate(k).getDay()]:kDate(k).toLocaleDateString(TR,{day:"numeric",month:"short"}));out.push(`<span><b>${lbl}</b> ${esc(m.name)}</span>`);n++}
   return out.join("")}
 
 /* ---------- olaylar ---------- */
@@ -1269,10 +1365,20 @@ document.addEventListener("click",async ev=>{
   case "openMember":S.member=el.dataset.m;S.dayOff=0;go("kisiler");break;
   case "openAnaliz":S.amember=el.dataset.m;S.analizTab="birey";go("analiz");break;
   case "newTaskCat":if(S.readOnly)return;draft={isNew:true,custom:true,title:"",cat:el.dataset.v,f:"g",sl:"any",dw:[],due:"",as:{},orig:{}};taskSheet();break;
-  case "dupTask":{syncDraftInputs();const base=draft;draft={isNew:true,custom:true,title:base.title,cat:base.cat,f:base.f,sl:base.sl||"any",dw:[...(base.dw||[])],due:base.due||"",as:{},orig:{}};taskSheet();setTimeout(()=>{const i=$("#tTitle");if(i){i.focus();i.select()}},30);toast("Kopya hazır. Adını değiştirip kaydedin.");break}
+  case "dupTask":{syncDraftInputs();const base=draft;draft={isNew:true,custom:true,title:base.title,cat:base.cat,f:base.f,sl:base.sl||"any",dw:[...(base.dw||[])],tk:base.tk?{...base.tk}:null,due:base.due||"",as:{},orig:{}};taskSheet();setTimeout(()=>{const i=$("#tTitle");if(i){i.focus();i.select()}},30);toast("Kopya hazır. Adını değiştirip kaydedin.");break}
   case "newTask":if(S.readOnly)return;draft={isNew:true,custom:true,title:"",cat:S.cat!=="all"?S.cat:"tem",f:"g",sl:"any",dw:[],due:"",as:{},orig:{}};taskSheet();break;
-  case "editTask":{if(S.readOnly){toast("Yalnızca görüntüleme modundasınız");return}const t=allTasks().find(x=>x.id===el.dataset.t);if(!t)return;draft={isNew:false,id:t.id,custom:t.custom,title:t.title,cat:t.cat,f:t.f,r:t.r,sl:t.sl,origSl:t.sl,dw:[...(t.dw||[])],due:t.due||"",rot:t.rot,as:{...t.as},orig:{...t.as}};taskSheet();break}
+  case "editTask":{if(S.readOnly){toast("Yalnızca görüntüleme modundasınız");return}const t=allTasks().find(x=>x.id===el.dataset.t);if(!t)return;draft={isNew:false,id:t.id,custom:t.custom,title:t.title,cat:t.cat,f:t.f,r:t.r,sl:t.sl,origSl:t.sl,dw:[...(t.dw||[])],tk:t.tk?{...t.tk}:null,due:t.due||"",rot:t.rot,as:{...t.as},orig:{...t.as}};taskSheet();break}
   case "dFreq":syncDraftInputs();draft.f=el.dataset.v;taskSheet();break;
+  case "openIcs":icsSheet(false);break;
+  case "icsSave":{const who=$("#icsWho").value,al=$("#icsAlarm").checked;const r=buildIcs(who,al);const m=who?memberById(who):null;
+    const fn=("gorevler-"+(m?m.name:(S.state.name||"aile"))).toLocaleLowerCase(TR).replace(/[^a-z0-9çğıöşü]+/g,"-").replace(/^-|-$/g,"")+".ics";
+    const ok=await saveTextFile(fn,r.txt,"text/calendar");closeSheet();if(ok&&!window.__AGP_APK)toast("Dosya indirildi. Açıp takviminize ekleyin.");break}
+  case "dTk":{syncDraftInputs();const v=el.dataset.v,now=new Date();
+    if(v==="w")draft.tk=null;
+    else if(v==="n")draft.tk={m:"h",n:draft.tk&&draft.tk.m==="h"?draft.tk.n:2,b:dkey(monday(now))};
+    else draft.tk={m:"a",g:now.getDate()<=28?now.getDate():-1};
+    taskSheet();break}
+  case "dTkA":{syncDraftInputs();const now=new Date();draft.tk=el.dataset.v==="g"?{m:"a",g:now.getDate()<=28?now.getDate():-1}:{m:"a",s:Math.min(4,Math.ceil(now.getDate()/7)),w:wdIdx(now)};taskSheet();break}
   case "dMem":{syncDraftInputs();const m=el.dataset.m;if(draft.as[m])delete draft.as[m];else draft.as[m]=Date.now();taskSheet();break}
   case "clearAs":syncDraftInputs();draft.as={};taskSheet();break;
   case "askDel":$("#delZone").innerHTML=`<div class="confirm"><b>“${esc(draft.title)}” silinsin mi?</b><span class="muted">Görev listeden ve analizlerden kalkar.</span><div class="actions"><button class="btn sm" data-act="cancelDel">Vazgeç</button><button class="btn sm danger" data-act="doDel">Evet, sil</button></div></div>`;break;
@@ -1282,8 +1388,8 @@ document.addEventListener("click",async ev=>{
     syncDraftInputs();
     if((draft.isNew||draft.custom)&&!draft.title.trim()){$("#tTitle").focus();toast("Görev adını yazın");return}
     const asPatch={};for(const m in draft.orig)if(!draft.as[m])asPatch[m]=null;for(const m in draft.as)asPatch[m]=draft.orig[m]||Date.now();
-    if(draft.isNew){const id="o"+uid();await patchState({tasks:{[id]:{custom:true,title:draft.title.trim(),cat:draft.cat,f:draft.f,sl:draft.sl||"any",dw:draft.f==="g"?draft.dw:[],due:draft.f==="t"?(draft.due||""):"",rot:!!draft.rot&&draft.f!=="t"&&Object.keys(draft.as).length>1,as:asPatch}}});toast("Görev eklendi");}
-    else{const p={f:draft.f,as:asPatch,dw:draft.f==="g"?draft.dw:[],due:draft.f==="t"?(draft.due||""):"",rot:!!draft.rot&&draft.f!=="t"&&Object.keys(draft.as).length>1};if(draft.sl!==draft.origSl)p.sl=draft.sl;if(draft.custom){p.title=draft.title.trim();p.cat=draft.cat}await patchState({tasks:{[draft.id]:p}});toast("Kaydedildi")}
+    if(draft.isNew){const id="o"+uid();await patchState({tasks:{[id]:{custom:true,title:draft.title.trim(),cat:draft.cat,f:draft.f,sl:draft.sl||"any",dw:draft.f==="g"&&!(draft.tk&&draft.tk.m==="a")?draft.dw:[],...(draft.f==="g"&&tkOk(draft.tk)?{tk:draft.tk}:{}),due:draft.f==="t"?(draft.due||""):"",rot:!!draft.rot&&draft.f!=="t"&&Object.keys(draft.as).length>1,as:asPatch}}});toast("Görev eklendi");}
+    else{const p={f:draft.f,as:asPatch,dw:draft.f==="g"&&!(draft.tk&&draft.tk.m==="a")?draft.dw:[],tk:draft.f==="g"&&tkOk(draft.tk)?draft.tk:null,due:draft.f==="t"?(draft.due||""):"",rot:!!draft.rot&&draft.f!=="t"&&Object.keys(draft.as).length>1};if(draft.sl!==draft.origSl)p.sl=draft.sl;if(draft.custom){p.title=draft.title.trim();p.cat=draft.cat}await patchState({tasks:{[draft.id]:p}});toast("Kaydedildi")}
     closeSheet();break}
   case "addMember":{const n=$("#nmName").value.trim();if(!n){$("#nmName").focus();return}const ms=members();await patchState({members:{[uid()]:{name:n,role:$("#nmRole").value,color:nextColor(),order:(ms.length?Math.max(...ms.map(m=>m.order||0))+1:0)}}});toast(n+" eklendi");break}
   case "editMember":{const m=memberById(el.dataset.m);if(!m)return;openSheet(`<div><div class="eyebrow">Aile üyesi</div><h3>${esc(m.name)}</h3></div>
@@ -1331,6 +1437,8 @@ document.addEventListener("keydown",e=>{
 document.addEventListener("change",e=>{
   if(e.target.id==="remOn"||/^rem-/.test(e.target.id)){saveRem();return}
   if(e.target.id==="tRot"){syncDraftInputs();taskSheet();return}
+  if(e.target.dataset&&e.target.dataset.chg==="tkSel"){syncDraftInputs();taskSheet();return}
+  if(e.target.id==="icsWho"||e.target.id==="icsAlarm"){icsSheet(true);return}
   if(e.target.id==="meSel"){if(e.target.value)ls.set("agp-ben",e.target.value);else ls.del("agp-ben");toast(e.target.value?"Bu cihaz "+memberById(e.target.value).name+" olarak ayarlandı":"Ortak cihaz olarak ayarlandı");render()}
   if(e.target.id==="bkFile"&&e.target.files&&e.target.files[0]&&!pinOk()){e.target.value="";pinSheet("unlock");toast("Yedeği yüklemek için önce ebeveyn PIN'ini girin");return}
   if(e.target.id==="bkFile"&&e.target.files&&e.target.files[0]){const f=e.target.files[0];const r=new FileReader();r.onload=()=>importBackupText(String(r.result||""));r.readAsText(f);e.target.value=""}
@@ -1346,6 +1454,7 @@ const VIEWS=TABS.map(t=>t[0]).concat("rehber","gizlilik");
 window.__agpBack=()=>{if(sheet){closeSheet();return true}if(S.view==="gorevler"&&(S.q||CAT[S.cat])){S.q="";S.cat="all";render();return true}if(S.focus){S.focus=null;render();return true}if(S.setup){S.setup=null;render();return true}const fam=S.mode==="local"?!!S.state.created:(S.ready&&S.exists&&S.code);if(fam&&S.view!=="bugun"){go("bugun");return true}return false};
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view){S.view=h;render()}});
 
+if(window.__AGP_TEST)window.__agpT={activeOn,allTasks,buildIcs,patchState,dkey,members,onDuty,S};
 /* ---------- başlangıç ---------- */
 (async function boot(){
   const h=location.hash.slice(1);S.view=VIEWS.includes(h)?h:(ls.get("agp-sekme")||"bugun");
